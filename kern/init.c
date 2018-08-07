@@ -24,7 +24,7 @@ i386_init(void)
 	// Can't call cprintf until after we do this!
 	cons_init();
 
-	cprintf("6828 decimal is %o octal!\n", 6828);
+	//cprintf("6828 decimal is %o octal!\n", 6828);
 
 	// Lab 2 memory management initialization functions
 	mem_init();
@@ -32,6 +32,8 @@ i386_init(void)
 	// Drop into the kernel monitor.
 	while (1)
 		monitor(NULL);
+	// Remove this line when you're ready to test this function.
+	panic("mem_init: This function is not finished\n");
 }
 
 
