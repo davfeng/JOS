@@ -159,6 +159,9 @@ mem_init(void)
 	// Make 'envs' point to an array of size 'NENV' of 'struct Env'.
 	// LAB 3: Your code here.
 
+	envs = (struct Env*)boot_alloc(NENV * sizeof(struct Env));
+	memset(envs, 0, NENV * sizeof(struct Env));
+	cprintf("envs=0x%x\n", envs);
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
 	// up the list of free physical pages. Once we've done so, all further
@@ -199,7 +202,14 @@ mem_init(void)
 	//    - the new image at UENVS  -- kernel R, user R
 	//    - envs itself -- kernel RW, user NONE
 	// LAB 3: Your code here.
-
+	n = ROUNDUP(NENV*sizeof(struct Env), PGSIZE);
+	for (i = 0; i < n; i += PGSIZE){
+		pte_t *ptep = pgdir_walk(pgdir, (void*)(UENVS + i), true);
+		if(!ptep){
+			panic("out of memory when allocate page table\n");
+		}
+		*ptep = (PADDR(envs) + i) | PTE_U | PTE_P;
+	}
 	//////////////////////////////////////////////////////////////////////
 	// Use the physical memory that 'bootstack' refers to as the kernel
 	// stack.  The kernel stack grows down from virtual address KSTACKTOP.
@@ -317,6 +327,11 @@ page_init(void)
 		}
 		//pages used to record the physical page frames
 		if(i >= PGNUM(PADDR(pages)) && i < PGNUM(PADDR(pages + npages))){
+			pages[i].pp_ref = 1;
+			continue;
+		}
+		//pages used for ENVS
+		if(i >= PGNUM(PADDR(envs)) && i < PGNUM(PADDR(pages +  ROUNDUP(NENV*sizeof(struct Env), PGSIZE)))){
 			pages[i].pp_ref = 1;
 			continue;
 		}
