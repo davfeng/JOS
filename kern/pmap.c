@@ -421,7 +421,7 @@ pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
 	// Fill this function in
-	struct PageInfo *plevel1;
+	struct PageInfo *pgtbl;
 	uint32_t pdx, ptx;
 	pdx = PDX(va);
 	ptx = PTX(va);
@@ -430,15 +430,15 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 		if(!create)
 			return NULL;
 		//allocate a page table
-		plevel1 = page_alloc(ALLOC_ZERO);
-		if(!plevel1)
+		pgtbl = page_alloc(ALLOC_ZERO);
+		if(!pgtbl)
 			return NULL;
-		pgdir[pdx] = ((plevel1 - pages) << PGSHIFT) | PTE_P | PTE_W | PTE_U;
-		plevel1->pp_ref++;
+		pgdir[pdx] = ((pgtbl - pages) << PGSHIFT) | PTE_P | PTE_W | PTE_U;
+		pgtbl->pp_ref++;
 	}
 
-	plevel1 = pages + (pgdir[pdx] >> PGSHIFT);
-	pte_t *ppte = (pte_t*)page2kva(plevel1);
+	pgtbl = pages + (pgdir[pdx] >> PGSHIFT);
+	pte_t *ppte = (pte_t*)page2kva(pgtbl);
 	return (ppte + ptx);
 }
 
@@ -597,7 +597,23 @@ int
 user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 {
 	// LAB 3: Your code here.
+	const void *p, *lower, *upper;
+	pte_t *pte;
+	
+	lower = (void*)ROUNDDOWN(va, PGSIZE);
+	upper = (void*)ROUNDUP(va + len, PGSIZE);
+	cprintf("%s, va=0x%x\n", __func__, va);
+	cprintf("%s, lower=0x%x\n", __func__, lower);
+	cprintf("%s, upper=0x%x\n", __func__, upper);
 
+	for(p = va; p < va + len;){
+		pte = pgdir_walk(env->env_pgdir, p, false);
+		if(((uint32_t)p >= ULIM) || !pte || (*pte & perm) != perm){
+			user_mem_check_addr = (uintptr_t)p;
+			return -E_FAULT;
+		}
+		p += PGSIZE;
+	}
 	return 0;
 }
 
