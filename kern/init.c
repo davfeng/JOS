@@ -42,6 +42,7 @@ i386_init(void)
 	trap_init();
 
 	// Lab 4 multiprocessor initialization functions
+	cprintf("mp_init!\n");
 	mp_init();
 	lapic_init();
 
@@ -96,6 +97,11 @@ boot_aps(void)
 		while(c->cpu_status != CPU_STARTED)
 			;
 	}
+	// We only have one user environment for now, so just run it.
+	env_run(&envs[0]);
+	// Drop into the kernel monitor.
+	while (1)
+		monitor(NULL);
 }
 
 // Setup code for APs
