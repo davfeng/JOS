@@ -267,6 +267,8 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 	env_free_list = e->env_link;
 	*newenv_store = e;
 
+	//enable the interrupt after entering user mode	
+	e->env_tf.tf_eflags |= FL_IF;
 	cprintf("[%08x] new env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
 	return 0;
 }
@@ -301,7 +303,12 @@ region_alloc(struct Env *e, void *va, size_t len)
 			if(!page){
 				cprintf("out of memory when allocating page table\n");
 			}
-			*ptep = page2pa(page) | PTE_U | PTE_P | PTE_W;
+
+			//insert the pte
+			if(page_insert(e->env_pgdir, page, p, PTE_U | PTE_P | PTE_W) < 0){
+				cprintf("page_insert failed\n");
+			}
+			//*ptep = page2pa(page) | PTE_U | PTE_P | PTE_W;
 		}
 		p += PGSIZE;
 	}
@@ -410,7 +417,6 @@ load_icode(struct Env *e, uint8_t *binary)
 	// LAB 3: Your code here.
 
 	region_alloc(e, (void*)(USTACKTOP - PGSIZE), PGSIZE);
-	cprintf("stack  0x%x\n", USTACKTOP - PGSIZE);
 	memset((void*)(USTACKTOP - PGSIZE), 0, PGSIZE);
 	lcr3(PADDR(kern_pgdir));
 }
@@ -436,7 +442,6 @@ env_create(uint8_t *binary, enum EnvType type)
 	}
 	e->env_type = type;
 	load_icode(e, binary);
-	cprintf("env_create.......\n");
 }
 
 //
@@ -568,19 +573,19 @@ env_run(struct Env *e)
 	//	e->env_tf to sensible values.
 
 	// LAB 3: Your code here.
-	//if(e != curenv){
-		if(curenv && curenv->env_status == ENV_RUNNING){
-			curenv->env_status = ENV_RUNNABLE;
-		}
-		curenv = e;
-		curenv->env_status = ENV_RUNNING;
-		curenv->env_runs++;
+	if(curenv && curenv->env_status == ENV_RUNNING){
+		curenv->env_status = ENV_RUNNABLE;
+	}
+	curenv = e;
+	curenv->env_status = ENV_RUNNING;
+	curenv->env_runs++;
 
-		lcr3(PADDR(curenv->env_pgdir));
-	cprintf("env_pop...............\n");
-
-		env_pop_tf(&curenv->env_tf);
-	//}
-	panic("env_run not yet implemented");
+	lcr3(PADDR(curenv->env_pgdir));
+	//cprintf("unlock_kernel before %s\n", __func__);
+	unlock_kernel();
+	//cprintf("cpu%d: %s\n", thiscpu->cpu_id, __func__);
+	//cprintf("pop trap frame\n");
+	//print_trapframe(&curenv->env_tf);
+	env_pop_tf(&curenv->env_tf);
 }
 

@@ -297,7 +297,17 @@ mem_init_mp(void)
 	//     Permissions: kernel RW, user NONE
 	//
 	// LAB 4: Your code here:
-
+	uint32_t i, n;
+	for (n = 0; n < NCPU; n++) {
+		uint32_t base = KSTACKTOP - (KSTKSIZE + KSTKGAP) * (n + 1);
+		for (i = 0; i < KSTKSIZE; i += PGSIZE){
+			pte_t *ptep = pgdir_walk(kern_pgdir, (void*)(base + KSTKGAP + i), true);
+			if(!ptep){
+				panic("out of memory when allocate page table\n");
+			}
+			*ptep = (PADDR(percpu_kstacks[n]) + i) | PTE_W | PTE_P;
+		}
+	}
 }
 
 // --------------------------------------------------------------
@@ -498,11 +508,15 @@ boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm
 {
 	// Fill this function in
 	pte_t *pte;
+	uint32_t i;
 	assert((pa % PGSIZE) == 0);
 	assert((va % PGSIZE) == 0);
 	assert((size % PGSIZE) == 0);
-	pte = pgdir_walk(pgdir, (const void*)va, true);
-	*pte = pa | perm;
+	for(i = 0; i < size; i += PGSIZE){
+		pte = pgdir_walk(pgdir, (const void*)(va + i), true);
+//		cprintf("pte = 0x%x, pa=0x%x\n", pte, pa);
+		*pte = (pa + i) | perm;
+	}
 }
 
 //
@@ -537,19 +551,19 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 	pte_t *ppte = pgdir_walk(pgdir, va, true);
 	if(!ppte)
 		return -E_NO_MEM;
-
 	if(*ppte & PTE_P){
-		//already mapped before, just change the perm
-		if((*ppte >> PGSHIFT) == (pp - pages)){
-			*ppte = ((*ppte >> PGSHIFT) << PGSHIFT) | perm | PTE_P;
-			return 0;
-		}
-		//already mapped, remove it
-		page_remove(kern_pgdir, va);
+		// already mapped, remove it. Because we are remapping, 
+		// we would not like the physical memory be freed if the
+		// physical memory is mapped at the same virtual address.
+		// so just increment the referene count, then remove
+		pp->pp_ref++;
+		page_remove(pgdir, va);
 	}
-
-	*ppte = ((pp - pages) << PGSHIFT) | (perm | PTE_P);
-	pp->pp_ref++;
+	else{
+		pp->pp_ref++;
+	}
+	//cprintf("%s: pgdir=0x%08x, va = 0x%08x, pfn=0x%08x\n", __func__, pgdir, va, page2pa(pp));
+	*ppte = (page2pa(pp) | (perm | PTE_P));
 	return 0;
 }
 
@@ -569,8 +583,10 @@ page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 {
 	// Fill this function in
 	pte_t *ppte = pgdir_walk(pgdir, va, false);
-	if(!ppte || !*ppte || !(*ppte & PTE_P))
+	if(!ppte || !*ppte || !(*ppte & PTE_P)){
+		cprintf("no page found!!!!!!!\n");
 		return NULL;
+	}
 
 	if(pte_store)
 		*pte_store = ppte;
@@ -652,7 +668,7 @@ mmio_map_region(physaddr_t pa, size_t size)
 	//
 	// Your code here:
 	size = ROUNDUP(size, PGSIZE);
-	boot_map_region(kern_pgdir, base, pa, size, PTE_W | PTE_PCD | PTE_PWT);
+	boot_map_region(kern_pgdir, base, size, pa, PTE_P | PTE_W | PTE_PCD | PTE_PWT);
 	p = (void*)base;
 	base += size;
 	return p;
@@ -687,9 +703,6 @@ user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 	
 	lower = (void*)ROUNDDOWN(va, PGSIZE);
 	upper = (void*)ROUNDUP(va + len, PGSIZE);
-	cprintf("%s, va=0x%x\n", __func__, va);
-	cprintf("%s, lower=0x%x\n", __func__, lower);
-	cprintf("%s, upper=0x%x\n", __func__, upper);
 
 	for(p = va; p < va + len;){
 		pte = pgdir_walk(env->env_pgdir, p, false);
@@ -939,9 +952,11 @@ check_va2pa(pde_t *pgdir, uintptr_t va)
 	pte_t *p;
 
 	pgdir = &pgdir[PDX(va)];
+//	cprintf("*pgdir=0x%x\n", *pgdir);
 	if (!(*pgdir & PTE_P))
 		return ~0;
 	p = (pte_t*) KADDR(PTE_ADDR(*pgdir));
+//	cprintf("p[PTX(va)]=0x%x\n", p[PTX(va)]);
 	if (!(p[PTX(va)] & PTE_P))
 		return ~0;
 	return PTE_ADDR(p[PTX(va)]);
@@ -1111,6 +1126,7 @@ check_page(void)
 	// check that they don't overlap
 	assert(mm1 + 8096 <= mm2);
 	// check page mappings
+	cprintf("pa=0x%x\n", check_va2pa(kern_pgdir, mm1));
 	assert(check_va2pa(kern_pgdir, mm1) == 0);
 	assert(check_va2pa(kern_pgdir, mm1+PGSIZE) == PGSIZE);
 	assert(check_va2pa(kern_pgdir, mm2) == 0);

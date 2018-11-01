@@ -26,7 +26,8 @@
 	.type name, @function;	/* symbol type is function */		\
 	.align 2;		/* align function definition */		\
 	name:			/* function starts here */		\
-	pushl $(num);							\
+	cli;									\
+	pushl $(num);						\
 	jmp _alltraps
 
 /* Use TRAPHANDLER_NOEC for traps where the CPU doesn't push an error code.
@@ -38,8 +39,9 @@
 	.type name, @function;	/* symbol type is function */		\
 	.align 2;		/* align function definition */		\
 	name:								\
+	cli	;								\
 	pushl $0;							\
-	pushl $(num);							\
+	pushl $(num);						\
 	jmp _alltraps
 
 .text
