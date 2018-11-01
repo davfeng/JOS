@@ -50,19 +50,20 @@ i386_init(void)
 
 	// Acquire the big kernel lock before waking up APs
 	// Your code here:
-
+	lock_kernel();
 	// Starting non-boot CPUs
 	boot_aps();
 
-	// Start fs.
-	ENV_CREATE(fs_fs, ENV_TYPE_FS);
 
 #if defined(TEST)
 	// Don't touch -- used by grading script!
 	ENV_CREATE(TEST, ENV_TYPE_USER);
 #else
+	// Start fs.
+	ENV_CREATE(fs_fs, ENV_TYPE_FS);
 	// Touch all you want.
 	ENV_CREATE(user_icode, ENV_TYPE_USER);
+	ENV_CREATE(user_dumbfork, ENV_TYPE_USER);
 #endif // TEST*
 
 	// Should not be necessary - drains keyboard because interrupt has given up.
@@ -93,7 +94,6 @@ boot_aps(void)
 	for (c = cpus; c < cpus + ncpu; c++) {
 		if (c == cpus + cpunum())  // We've started already.
 			continue;
-
 		// Tell mpentry.S what stack to use 
 		mpentry_kstack = percpu_kstacks[c - cpus] + KSTKSIZE;
 		// Start the CPU at mpentry_start
@@ -122,6 +122,8 @@ mp_main(void)
 	// only one CPU can enter the scheduler at a time!
 	//
 	// Your code here:
+	lock_kernel();
+	sched_yield();
 
 	// Remove this after you finish Exercise 6
 	for (;;);

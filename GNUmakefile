@@ -156,7 +156,7 @@ QEMUOPTS += $(QEMUEXTRA)
 	sed "s/localhost:1234/localhost:$(GDBPORT)/" < $^ > $@
 
 gdb:
-	gdb -n -x .gdbinit
+	gdb -iex 'add-auto-load-safe-path .' -n -x .gdbinit
 
 pre-qemu: .gdbinit
 

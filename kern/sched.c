@@ -11,8 +11,8 @@ void sched_halt(void);
 void
 sched_yield(void)
 {
-	struct Env *idle;
-
+	struct Env *idle = NULL;
+	uint32_t i, start;
 	// Implement simple round-robin scheduling.
 	//
 	// Search through 'envs' for an ENV_RUNNABLE environment in
@@ -27,9 +27,48 @@ sched_yield(void)
 	// another CPU (env_status == ENV_RUNNING). If there are
 	// no runnable environments, simply drop through to the code
 	// below to halt the cpu.
-
 	// LAB 4: Your code here.
+	if(curenv && curenv->env_status == ENV_RUNNING){
+		curenv->env_status = ENV_RUNNABLE;
+	}
 
+	if(curenv == NULL){
+		start = 0;
+	}
+	else{
+		start = thiscpu->cpu_env - &envs[0] + 1;
+		if(start >= NENV)
+			start = 0;
+	}
+
+	//cprintf("%s: start=%d\n", __func__, start);
+	i = start;
+	for(; i < NENV; i++){
+		if ((envs[i].env_status == ENV_RUNNABLE)){
+			idle = &envs[i];
+			break;
+		} 
+	}
+	//check the envs before the curr
+	if(start != 0 && idle == NULL){
+		assert(i == NENV);
+		for(i = 0; i < start; i++){
+			if ((envs[i].env_status == ENV_RUNNABLE)){
+				idle = &envs[i];
+				break;
+			}
+		}
+	}
+
+	//cprintf("%s: start=%d, i=%d, idle=0x%x, &envs[i]=0x%x\n", __func__, start,i,idle,&envs[i]);
+	if(idle){
+	//	cprintf("env_run in sched\n");
+		env_run(idle);
+	}
+	//no environment is selected
+	//if(curenv && curenv->env_status == ENV_RUNNING){
+	//	env_run(thiscpu->cpu_env);
+	//}
 	// sched_halt never returns
 	sched_halt();
 }
@@ -42,6 +81,7 @@ sched_halt(void)
 {
 	int i;
 
+	cprintf("%s: %d\n" ,__func__, thiscpu->cpu_id);
 	// For debugging and testing purposes, if there are no runnable
 	// environments in the system, then drop into the kernel monitor.
 	for (i = 0; i < NENV; i++) {
@@ -66,6 +106,7 @@ sched_halt(void)
 	xchg(&thiscpu->cpu_status, CPU_HALTED);
 
 	// Release the big kernel lock as if we were "leaving" the kernel
+	cprintf("%s before unlock_kernel\n", __func__);
 	unlock_kernel();
 
 	// Reset stack pointer, enable interrupts and then halt.
@@ -75,7 +116,7 @@ sched_halt(void)
 		"pushl $0\n"
 		"pushl $0\n"
 		// Uncomment the following line after completing exercise 13
-		//"sti\n"
+		"sti\n"
 		"1:\n"
 		"hlt\n"
 		"jmp 1b\n"
