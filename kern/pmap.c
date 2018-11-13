@@ -193,7 +193,7 @@ mem_init(void)
 		if(!ptep){
 			panic("out of memory when allocate page table\n");
 		}
-		*ptep = (PADDR(pages) + i) | PTE_W | PTE_P;
+		*ptep = (PADDR(pages) + i) | PTE_U | PTE_P;
 	}
 
 	//////////////////////////////////////////////////////////////////////
