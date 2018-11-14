@@ -362,9 +362,6 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 		if((perm & PTE_W) && !(*pte & PTE_W)){
 			return -E_INVAL;
 		}
-		if(!page_lookup(e->env_pgdir, srcva, &pte)){
-			return -E_NO_MEM;
-		}
 	}
 
 	e->env_ipc_recving = 0;
