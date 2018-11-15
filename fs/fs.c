@@ -470,14 +470,11 @@ file_flush(struct File *f)
 		if (file_block_walk(f, i, &pdiskbno, 0) < 0 ||
 		    pdiskbno == NULL || *pdiskbno == 0)
 			continue;
-	cprintf("starting flush_block\n");
 		flush_block(diskaddr(*pdiskbno));
 	}
-	cprintf("starting flush_block1\n");
 	flush_block(f);
 	if (f->f_indirect)
 		flush_block(diskaddr(f->f_indirect));
-	cprintf("end file flush\n");
 }
 
 
