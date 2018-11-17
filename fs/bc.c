@@ -52,7 +52,11 @@ bc_pgfault(struct UTrapframe *utf)
 	if((r = sys_page_alloc(0, addr, PTE_P | PTE_U | PTE_W)) < 0)
 		panic("in bc_pgfault, sys_page_alloc: %e", r);
 
-	ide_read(blockno * BLKSECTS, addr, BLKSECTS);
+	// for read operation, read the page right now('sync mode')
+	// for write operation, just map the page and write to memory.
+	// delay the write to disk until flush
+	if(!(utf->utf_err & 2))
+		ide_read(blockno * BLKSECTS, addr, BLKSECTS);
 	// Clear the dirty bit for the disk block page since we just read the
 	// block from disk
 	if ((r = sys_page_map(0, addr, 0, addr, uvpt[PGNUM(addr)] & PTE_SYSCALL)) < 0)

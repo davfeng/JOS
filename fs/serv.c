@@ -219,7 +219,10 @@ serve_read(envid_t envid, union Fsipc *ipc)
 	if ((r = openfile_lookup(envid, req->req_fileid, &o)) < 0)
 		return r;
 
-	return file_read(o->o_file, ret->ret_buf, req->req_n, o->o_fd->fd_offset);
+	r = file_read(o->o_file, ret->ret_buf, req->req_n, o->o_fd->fd_offset);
+	if(r > 0)
+	   o->o_fd->fd_offset += r;
+	return r;
 }
 
 
@@ -239,7 +242,10 @@ serve_write(envid_t envid, struct Fsreq_write *req)
 	if ((r = openfile_lookup(envid, req->req_fileid, &o)) < 0)
 		return r;
 
-	return file_write(o->o_file, req->req_buf, req->req_n, o->o_fd->fd_offset); 
+	r = file_write(o->o_file, req->req_buf, req->req_n, o->o_fd->fd_offset);
+	if(r > 0)
+	   o->o_fd->fd_offset += r;
+	return r;
 }
 
 // Stat ipc->stat.req_fileid.  Return the file's struct Stat to the
@@ -312,8 +318,8 @@ serve(void)
 		perm = 0;
 		req = ipc_recv((int32_t *) &whom, fsreq, &perm);
 		if (debug)
-			cprintf("fs req %d from %08x [page %08x: %s]\n",
-				req, whom, uvpt[PGNUM(fsreq)], fsreq);
+			cprintf("fs req %d from %08x [page %08x]\n",
+				req, whom, uvpt[PGNUM(fsreq)]);
 
 		// All requests must contain an argument page
 		if (!(perm & PTE_P)) {
