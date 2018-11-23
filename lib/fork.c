@@ -137,13 +137,16 @@ fork(void)
 			pte = addr >> 12;
 			uint32_t bits = *(p + pte);
 
+			// shared page, just copy the mapping
+			if((bits & PTE_SYSCALL) & PTE_SHARE){
+				sys_page_map(0, (void*)addr, childenv, (void*)addr, bits);
+			}
 			// RO page, just map(share)
-			if((bits & PTE_P) && (bits & PTE_U) && (bits & PTE_W) == 0 && (bits & PTE_COW) == 0){ 
+			else if((bits & PTE_P) && (bits & PTE_U) && (bits & PTE_W) == 0 && (bits & PTE_COW) == 0){ 
 				sys_page_map(0, (void*)addr, childenv, (void*)addr, PTE_P | PTE_U);
 			}
-
 			// R/W page, make it COW
-			if((bits & PTE_P) && (bits & PTE_U ) && ((bits & PTE_W) || (bits & PTE_COW))){ 
+			else if((bits & PTE_P) && (bits & PTE_U ) && ((bits & PTE_W) || (bits & PTE_COW))){ 
 				duppage(childenv, addr >> 12);
 			}
 		}

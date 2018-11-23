@@ -9,7 +9,7 @@
 #include "fs.h"
 
 
-#define debug 1
+#define debug 0
 
 // The file system server maintains three structures
 // for each open file.
@@ -355,7 +355,7 @@ umain(int argc, char **argv)
 
 	serve_init();
 	fs_init();
-        fs_test();
+    //    fs_test();
 	serve();
 }
 

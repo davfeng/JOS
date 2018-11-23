@@ -301,7 +301,21 @@ map_segment(envid_t child, uintptr_t va, size_t memsz,
 static int
 copy_shared_pages(envid_t child)
 {
+	uint32_t addr, pde, pte;
 	// LAB 5: Your code here.
+	for(addr = 0; addr < USTACKTOP; addr += PGSIZE){
+		// if pde is not existent, continue next
+		pde = uvpd[PDX(addr)];
+		if(!(pde & PTE_P))
+			continue;
+		// check pte
+		pte = uvpt[PTX(addr)];
+
+		// shared page, just copy the mapping
+		if((pte & PTE_SYSCALL) & PTE_SHARE){
+			cprintf("copy shared page. addr=0x%x\n",addr);
+			sys_page_map(0, (void*)addr, child, (void*)addr, pte & PTE_SYSCALL);
+		}
+	}
 	return 0;
 }
-

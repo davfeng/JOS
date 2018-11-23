@@ -404,6 +404,18 @@ sys_ipc_recv(void *dstva)
 	return 0;
 }
 
+static int
+sys_set_trapframe(envid_t envid, struct Trapframe *tf)
+{
+	struct Env *e;
+	if(envid2env(envid, &e, 0)){
+		return -E_BAD_ENV;	
+	}
+
+	e->env_tf = *tf;
+	return 0;
+}
+
 // Dispatches to the correct kernel function, passing the arguments.
 int32_t
 syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5)
@@ -441,6 +453,8 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		return sys_ipc_try_send((envid_t)a1, (int)a2, (void*)a3, (int)a4);
 	case SYS_ipc_recv:
 		return sys_ipc_recv((void*)a1); 
+	case SYS_env_set_trapframe:
+		return sys_set_trapframe((envid_t)a1, (void*)a2);
 	default:
 		return -E_INVAL;
 	}
