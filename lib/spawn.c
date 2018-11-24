@@ -309,11 +309,10 @@ copy_shared_pages(envid_t child)
 		if(!(pde & PTE_P))
 			continue;
 		// check pte
-		pte = uvpt[PTX(addr)];
+		pte = uvpt[PGNUM(addr)];
 
 		// shared page, just copy the mapping
 		if((pte & PTE_SYSCALL) & PTE_SHARE){
-			cprintf("copy shared page. addr=0x%x\n",addr);
 			sys_page_map(0, (void*)addr, child, (void*)addr, pte & PTE_SYSCALL);
 		}
 	}
