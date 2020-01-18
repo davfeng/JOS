@@ -341,6 +341,7 @@ page_fault_handler(struct Trapframe *tf)
 	// LAB 4: Your code here.
 	if(curenv->env_pgfault_upcall){
 		struct UTrapframe *ustk = (struct UTrapframe*)(UXSTACKTOP - sizeof(struct UTrapframe));
+		user_mem_assert(curenv, ustk, sizeof(struct UTrapframe), 0);
 		if(tf->tf_esp >= UXSTACKTOP - PGSIZE && tf->tf_esp < UXSTACKTOP){
 			//recursive exception
 			ustk = (struct UTrapframe*)(tf->tf_esp - 4 - sizeof(struct UTrapframe));
@@ -354,6 +355,7 @@ page_fault_handler(struct Trapframe *tf)
 		ustk->utf_esp = tf->tf_esp;
 		tf->tf_esp = (uintptr_t)ustk;
 		tf->tf_eip = (uintptr_t)curenv->env_pgfault_upcall;
+		user_mem_assert(curenv, (const void*)tf->tf_eip, PGSIZE, 0);
 		env_run(curenv);
 		//unlock_kernel();
 		//env_pop_tf(tf);
