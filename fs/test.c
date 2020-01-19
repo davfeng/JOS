@@ -12,6 +12,7 @@ fs_test(void)
 	int r;
 	char *blk;
 	uint32_t *bits;
+cprintf("fs_testing!!!!!!!!!!!!!!!!!\n");
 
 	// back up bitmap
 	if ((r = sys_page_alloc(0, (void*) PGSIZE, PTE_P|PTE_U|PTE_W)) < 0)
@@ -43,7 +44,9 @@ fs_test(void)
 
 	*(volatile char*)blk = *(volatile char*)blk;
 	assert((uvpt[PGNUM(blk)] & PTE_D));
+	cprintf("start file_flush\n");
 	file_flush(f);
+	cprintf("file_flush is good\n");
 	assert(!(uvpt[PGNUM(blk)] & PTE_D));
 	cprintf("file_flush is good\n");
 

@@ -55,6 +55,7 @@ $(OBJDIR)/fs/fs: $(FSOFILES) $(OBJDIR)/lib/entry.o $(OBJDIR)/lib/libjos.a user/u
 		$(OBJDIR)/lib/entry.o $(FSOFILES) \
 		-L$(OBJDIR)/lib -ljos $(GCC_LIB)
 	$(V)$(OBJDUMP) -S $@ >$@.asm
+	$(V)$(NM) -n $@ > $@.sym
 
 # How to build the file system image
 $(OBJDIR)/fs/fsformat: fs/fsformat.c

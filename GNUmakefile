@@ -166,7 +166,7 @@ QEMUOPTS += $(QEMUEXTRA)
 	sed "s/localhost:1234/localhost:$(GDBPORT)/" < $^ > $@
 
 gdb:
-	gdb -n -x .gdbinit
+	gdb -iex 'add-auto-load-safe-path .' -n -x .gdbinit
 
 pre-qemu: .gdbinit
 #	QEMU doesn't truncate the pcap file.  Work around this.

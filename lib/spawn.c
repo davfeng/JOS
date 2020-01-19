@@ -129,7 +129,7 @@ spawn(const char *prog, const char **argv)
 	if ((r = copy_shared_pages(child)) < 0)
 		panic("copy_shared_pages: %e", r);
 
-	child_tf.tf_eflags |= FL_IOPL_3;   // devious: see user/faultio.c
+	child_tf.tf_eflags |= FL_IOPL_0;   // devious: see user/faultio.c
 	if ((r = sys_env_set_trapframe(child, &child_tf)) < 0)
 		panic("sys_env_set_trapframe: %e", r);
 
@@ -301,7 +301,20 @@ map_segment(envid_t child, uintptr_t va, size_t memsz,
 static int
 copy_shared_pages(envid_t child)
 {
+	uint32_t addr, pde, pte;
 	// LAB 5: Your code here.
+	for(addr = 0; addr < USTACKTOP; addr += PGSIZE){
+		// if pde is not existent, continue next
+		pde = uvpd[PDX(addr)];
+		if(!(pde & PTE_P))
+			continue;
+		// check pte
+		pte = uvpt[PGNUM(addr)];
+
+		// shared page, just copy the mapping
+		if((pte & PTE_SYSCALL) & PTE_SHARE){
+			sys_page_map(0, (void*)addr, child, (void*)addr, pte & PTE_SYSCALL);
+		}
+	}
 	return 0;
 }
-

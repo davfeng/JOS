@@ -12,7 +12,7 @@ def matchtest(parent, name, *args, **kw):
 
 @test(5, "internal FS tests [fs/test.c]")
 def test_fs():
-    r.user_test("hello")
+    r.user_test("fs_fs")
 matchtest(test_fs, "fs i/o",
           "FS can do I/O")
 matchtest(test_fs, "check_bc",
