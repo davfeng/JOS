@@ -65,6 +65,7 @@ i386_init(void)
 	// Start ns.
 	ENV_CREATE(net_ns, ENV_TYPE_NS);
 
+#endif
 	ENV_CREATE(fs_fs, ENV_TYPE_FS);
 #if defined(TEST)
 	// Don't touch -- used by grading script!

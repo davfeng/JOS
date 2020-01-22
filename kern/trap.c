@@ -223,6 +223,7 @@ trap_dispatch(struct Trapframe *tf)
 	if (tf->tf_trapno == IRQ_OFFSET + IRQ_TIMER) {
 		//cprintf("cpu%d:handling clock interrupt\n", thiscpu->cpu_id);
 		lapic_eoi();
+		time_tick();
 		sched_yield();
 		return;
 	}
