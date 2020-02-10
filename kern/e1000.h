@@ -252,7 +252,141 @@
 #define M88E1000_PHY_VCO_REG_BIT8  0x100 /* Bits 8 & 11 are adjusted for */
 #define M88E1000_PHY_VCO_REG_BIT11 0x800    /* improved BER performance */
 
-int e1000_enable(struct pci_func *f);
+/* Transmit Control */
+#define E1000_TCTL_RST    0x00000001    /* software reset */
+#define E1000_TCTL_EN     0x00000002    /* enable tx */
+#define E1000_TCTL_BCE    0x00000004    /* busy check enable */
+#define E1000_TCTL_PSP    0x00000008    /* pad short packets */
+#define E1000_TCTL_CT     0x00000ff0    /* collision threshold */
+#define E1000_TCTL_COLD   0x003ff000    /* collision distance */
+#define E1000_TCTL_SWXOFF 0x00400000    /* SW Xoff transmission */
+#define E1000_TCTL_PBE    0x00800000    /* Packet Burst Enable */
+#define E1000_TCTL_RTLC   0x01000000    /* Re-transmit on late collision */
+#define E1000_TCTL_NRTU   0x02000000    /* No Re-transmit on underrun */
+#define E1000_TCTL_MULR   0x10000000    /* Multiple request support */
+
+/* Transmit Descriptor bit definitions */
+#define E1000_TXD_DTYP_D     0x00100000 /* Data Descriptor */
+#define E1000_TXD_DTYP_C     0x00000000 /* Context Descriptor */
+#define E1000_TXD_POPTS_IXSM 0x01       /* Insert IP checksum */
+#define E1000_TXD_POPTS_TXSM 0x02       /* Insert TCP/UDP checksum */
+#define E1000_TXD_CMD_EOP    0x01 /* End of Packet */
+#define E1000_TXD_CMD_IFCS   0x02 /* Insert FCS (Ethernet CRC) */
+#define E1000_TXD_CMD_IC     0x04 /* Insert Checksum */
+#define E1000_TXD_CMD_RS     0x08 /* Report Status */
+#define E1000_TXD_CMD_RPS    0x10 /* Report Packet Sent */
+#define E1000_TXD_CMD_DEXT   0x20 /* Descriptor extension (0 = legacy) */
+#define E1000_TXD_CMD_VLE    0x40 /* Add VLAN tag */
+#define E1000_TXD_CMD_IDE    0x80 /* Enable Tidv register */
+#define E1000_TXD_STAT_DD    0x01 /* Descriptor Done */
+#define E1000_TXD_STAT_EC    0x02 /* Excess Collisions */
+#define E1000_TXD_STAT_LC    0x04 /* Late Collisions */
+#define E1000_TXD_STAT_TU    0x08 /* Transmit underrun */
+#define E1000_TXD_CMD_TCP    0x01000000 /* TCP packet */
+#define E1000_TXD_CMD_IP     0x02000000 /* IP packet */
+#define E1000_TXD_CMD_TSE    0x04000000 /* TCP Seg enable */
+#define E1000_TXD_STAT_TC    0x00000004 /* Tx Underrun */
+
+/* Receive Control */
+#define E1000_RCTL_RST            0x00000001    /* Software reset */
+#define E1000_RCTL_EN             0x00000002    /* enable */
+#define E1000_RCTL_SBP            0x00000004    /* store bad packet */
+#define E1000_RCTL_UPE            0x00000008    /* unicast promiscuous enable */
+#define E1000_RCTL_MPE            0x00000010    /* multicast promiscuous enab */
+#define E1000_RCTL_LPE            0x00000020    /* long packet enable */
+#define E1000_RCTL_LBM_NO         0x00000000    /* no loopback mode */
+#define E1000_RCTL_LBM_MAC        0x00000040    /* MAC loopback mode */
+#define E1000_RCTL_LBM_SLP        0x00000080    /* serial link loopback mode */
+#define E1000_RCTL_LBM_TCVR       0x000000C0    /* tcvr loopback mode */
+#define E1000_RCTL_DTYP_MASK      0x00000C00    /* Descriptor type mask */
+#define E1000_RCTL_DTYP_PS        0x00000400    /* Packet Split descriptor */
+#define E1000_RCTL_RDMTS_HALF     0x00000000    /* rx desc min threshold size */
+#define E1000_RCTL_RDMTS_QUAT     0x00000100    /* rx desc min threshold size */
+#define E1000_RCTL_RDMTS_EIGTH    0x00000200    /* rx desc min threshold size */
+#define E1000_RCTL_MO_SHIFT       12            /* multicast offset shift */
+#define E1000_RCTL_MO_0           0x00000000    /* multicast offset 11:0 */
+#define E1000_RCTL_MO_1           0x00001000    /* multicast offset 12:1 */
+#define E1000_RCTL_MO_2           0x00002000    /* multicast offset 13:2 */
+#define E1000_RCTL_MO_3           0x00003000    /* multicast offset 15:4 */
+#define E1000_RCTL_MDR            0x00004000    /* multicast desc ring 0 */
+#define E1000_RCTL_BAM            0x00008000    /* broadcast enable */
+/* these buffer sizes are valid if E1000_RCTL_BSEX is 0 */
+#define E1000_RCTL_SZ_2048        0x00000000    /* rx buffer size 2048 */
+#define E1000_RCTL_SZ_1024        0x00010000    /* rx buffer size 1024 */
+#define E1000_RCTL_SZ_512         0x00020000    /* rx buffer size 512 */
+#define E1000_RCTL_SZ_256         0x00030000    /* rx buffer size 256 */
+/* these buffer sizes are valid if E1000_RCTL_BSEX is 1 */
+#define E1000_RCTL_SZ_16384       0x00010000    /* rx buffer size 16384 */
+#define E1000_RCTL_SZ_8192        0x00020000    /* rx buffer size 8192 */
+#define E1000_RCTL_SZ_4096        0x00030000    /* rx buffer size 4096 */
+#define E1000_RCTL_VFE            0x00040000    /* vlan filter enable */
+#define E1000_RCTL_CFIEN          0x00080000    /* canonical form enable */
+#define E1000_RCTL_CFI            0x00100000    /* canonical form indicator */
+#define E1000_RCTL_DPF            0x00400000    /* discard pause frames */
+#define E1000_RCTL_PMCF           0x00800000    /* pass MAC control frames */
+#define E1000_RCTL_BSEX           0x02000000    /* Buffer size extension */
+#define E1000_RCTL_SECRC          0x04000000    /* Strip Ethernet CRC */
+#define E1000_RCTL_FLXBUF_MASK    0x78000000    /* Flexible buffer size */
+#define E1000_RCTL_FLXBUF_SHIFT   27            /* Flexible buffer shift */
 
 
+/* Receive Descriptor bit definitions */
+#define E1000_RXD_STAT_DD       0x01    /* Descriptor Done */
+#define E1000_RXD_STAT_EOP      0x02    /* End of Packet */
+#define E1000_RXD_STAT_IXSM     0x04    /* Ignore checksum */
+#define E1000_RXD_STAT_VP       0x08    /* IEEE VLAN Packet */
+#define E1000_RXD_STAT_UDPCS    0x10    /* UDP xsum caculated */
+#define E1000_RXD_STAT_TCPCS    0x20    /* TCP xsum calculated */
+#define E1000_RXD_STAT_IPCS     0x40    /* IP xsum calculated */
+#define E1000_RXD_STAT_PIF      0x80    /* passed in-exact filter */
+#define E1000_RXD_STAT_IPIDV    0x200   /* IP identification valid */
+#define E1000_RXD_STAT_UDPV     0x400   /* Valid UDP checksum */
+#define E1000_RXD_STAT_ACK      0x8000  /* ACK Packet indication */
+#define E1000_RXD_ERR_CE        0x01    /* CRC Error */
+#define E1000_RXD_ERR_SE        0x02    /* Symbol Error */
+#define E1000_RXD_ERR_SEQ       0x04    /* Sequence Error */
+#define E1000_RXD_ERR_CXE       0x10    /* Carrier Extension Error */
+#define E1000_RXD_ERR_TCPE      0x20    /* TCP/UDP Checksum Error */
+#define E1000_RXD_ERR_IPE       0x40    /* IP Checksum Error */
+#define E1000_RXD_ERR_RXE       0x80    /* Rx Data Error */
+#define E1000_RXD_SPC_VLAN_MASK 0x0FFF  /* VLAN ID is in lower 12 bits */
+#define E1000_RXD_SPC_PRI_MASK  0xE000  /* Priority is in upper 3 bits */
+#define E1000_RXD_SPC_PRI_SHIFT 13
+#define E1000_RXD_SPC_CFI_MASK  0x1000  /* CFI is bit 12 */
+#define E1000_RXD_SPC_CFI_SHIFT 12
+
+#define E1000_RXDEXT_STATERR_CE    0x01000000
+#define E1000_RXDEXT_STATERR_SE    0x02000000
+#define E1000_RXDEXT_STATERR_SEQ   0x04000000
+#define E1000_RXDEXT_STATERR_CXE   0x10000000
+#define E1000_RXDEXT_STATERR_TCPE  0x20000000
+#define E1000_RXDEXT_STATERR_IPE   0x40000000
+#define E1000_RXDEXT_STATERR_RXE   0x80000000
+
+/* Transmit Descriptor bit definitions */
+#define E1000_TXD_DTYP_D     0x00100000 /* Data Descriptor */
+#define E1000_TXD_DTYP_C     0x00000000 /* Context Descriptor */
+#define E1000_TXD_POPTS_IXSM 0x01       /* Insert IP checksum */
+#define E1000_TXD_POPTS_TXSM 0x02       /* Insert TCP/UDP checksum */
+#define E1000_TXD_CMD_EOP    0x01 /* End of Packet */
+#define E1000_TXD_CMD_IFCS   0x02 /* Insert FCS (Ethernet CRC) */
+#define E1000_TXD_CMD_IC     0x04 /* Insert Checksum */
+#define E1000_TXD_CMD_RS     0x08 /* Report Status */
+#define E1000_TXD_CMD_RPS    0x10 /* Report Packet Sent */
+#define E1000_TXD_CMD_DEXT   0x20 /* Descriptor extension (0 = legacy) */
+#define E1000_TXD_CMD_VLE    0x40 /* Add VLAN tag */
+#define E1000_TXD_CMD_IDE    0x80 /* Enable Tidv register */
+#define E1000_TXD_STAT_DD    0x01 /* Descriptor Done */
+#define E1000_TXD_STAT_EC    0x02 /* Excess Collisions */
+#define E1000_TXD_STAT_LC    0x04 /* Late Collisions */
+#define E1000_TXD_STAT_TU    0x08 /* Transmit underrun */
+#define E1000_TXD_CMD_TCP    0x01000000 /* TCP packet */
+#define E1000_TXD_CMD_IP     0x02000000 /* IP packet */
+#define E1000_TXD_CMD_TSE    0x04000000 /* TCP Seg enable */
+#define E1000_TXD_STAT_TC    0x00000004 /* Tx Underrun */
+
+int  e1000_enable(struct pci_func *func);
+void e1000_init();
+int  transmit_data(uint8_t *p, uint32_t len);
+int  receive_data(uint8_t *p);
 #endif	// JOS_KERN_E1000_H
