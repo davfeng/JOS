@@ -7,12 +7,13 @@
 
 void sched_halt(void);
 
+static uint32_t start;
 // Choose a user environment to run and run it.
 void
 sched_yield(void)
 {
 	struct Env *idle = NULL;
-	uint32_t i, start;
+	uint32_t i;
 	// Implement simple round-robin scheduling.
 	//
 	// Search through 'envs' for an ENV_RUNNABLE environment in
@@ -28,20 +29,6 @@ sched_yield(void)
 	// no runnable environments, simply drop through to the code
 	// below to halt the cpu.
 	// LAB 4: Your code here.
-	if(curenv && curenv->env_status == ENV_RUNNING){
-		curenv->env_status = ENV_RUNNABLE;
-	}
-
-	if(curenv == NULL){
-		start = 0;
-	}
-	else{
-		start = thiscpu->cpu_env - &envs[0] + 1;
-		if(start >= NENV)
-			start = 0;
-	}
-
-	//cprintf("%s: start=%d\n", __func__, start);
 	i = start;
 	for(; i < NENV; i++){
 		if ((envs[i].env_status == ENV_RUNNABLE)){
@@ -50,7 +37,7 @@ sched_yield(void)
 		} 
 	}
 	//check the envs before the curr
-	if(start != 0 && idle == NULL){
+	if(idle == NULL){
 		assert(i == NENV);
 		for(i = 0; i < start; i++){
 			if ((envs[i].env_status == ENV_RUNNABLE)){
@@ -59,17 +46,25 @@ sched_yield(void)
 			}
 		}
 	}
-
 	//cprintf("%s: start=%d, i=%d, idle=0x%x, &envs[i]=0x%x\n", __func__, start,i,idle,&envs[i]);
 	if(idle){
-	//	cprintf("env_run in sched\n");
+		if (i == NENV-1)
+			start = 0;
+		else
+			start = i+1;
+
+		//set the curenv as runnable
+		if ((curenv && (curenv->env_status == ENV_RUNNING)))
+			curenv->env_status = ENV_RUNNABLE;
 		env_run(idle);
 	}
-	//no environment is selected
-	//if(curenv && curenv->env_status == ENV_RUNNING){
-	//	env_run(thiscpu->cpu_env);
-	//}
-	// sched_halt never returns
+
+	//no environment is selected, if previous running process on this cpu is runnable, run it
+	if (curenv && curenv->env_status == ENV_RUNNING){
+		start = thiscpu->cpu_env - &envs[0] + 1;
+		env_run(thiscpu->cpu_env);
+	}
+
 	sched_halt();
 }
 
@@ -106,7 +101,7 @@ sched_halt(void)
 	xchg(&thiscpu->cpu_status, CPU_HALTED);
 
 	// Release the big kernel lock as if we were "leaving" the kernel
-	cprintf("%s before unlock_kernel\n", __func__);
+	//cprintf("%s before unlock_kernel\n", __func__);
 	unlock_kernel();
 
 	// Reset stack pointer, enable interrupts and then halt.
