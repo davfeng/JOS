@@ -243,7 +243,6 @@ trap(struct Trapframe *tf)
 
 	// Re-acqurie the big kernel lock if we were halted in
 	if (xchg(&thiscpu->cpu_status, CPU_STARTED) == CPU_HALTED){
-		cprintf("lock kernel in xchg\n");
 		lock_kernel();
 	}
 	// Check that interrupts are disabled.  If this assertion
