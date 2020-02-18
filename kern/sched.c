@@ -8,6 +8,11 @@
 void sched_halt(void);
 
 static uint32_t start;
+struct spinlock sched_lock = {
+#ifdef DEBUG_SPINLOCK
+	.name = "sched_lock"
+#endif
+};
 // Choose a user environment to run and run it.
 void
 sched_yield(void)
@@ -30,6 +35,7 @@ sched_yield(void)
 	// below to halt the cpu.
 	// LAB 4: Your code here.
 	i = start;
+	spin_lock(&sched_lock);
 	for(; i < NENV; i++){
 		if ((envs[i].env_status == ENV_RUNNABLE)){
 			idle = &envs[i];
@@ -56,12 +62,16 @@ sched_yield(void)
 		//set the curenv as runnable
 		if ((curenv && (curenv->env_status == ENV_RUNNING)))
 			curenv->env_status = ENV_RUNNABLE;
+
+		spin_unlock(&sched_lock);
 		env_run(idle);
 	}
 
+	spin_unlock(&sched_lock);
 	//no environment is selected, if previous running process on this cpu is runnable, run it
 	if (curenv && curenv->env_status == ENV_RUNNING){
 		start = thiscpu->cpu_env - &envs[0] + 1;
+
 		env_run(thiscpu->cpu_env);
 	}
 
@@ -76,6 +86,7 @@ sched_halt(void)
 {
 	int i;
 
+	spin_lock(&sched_lock);
 	cprintf("%s: %d\n" ,__func__, thiscpu->cpu_id);
 	// For debugging and testing purposes, if there are no runnable
 	// environments in the system, then drop into the kernel monitor.
@@ -100,6 +111,7 @@ sched_halt(void)
 	// big kernel lock
 	xchg(&thiscpu->cpu_status, CPU_HALTED);
 
+	spin_unlock(&sched_lock);
 	// Release the big kernel lock as if we were "leaving" the kernel
 	//cprintf("%s before unlock_kernel\n", __func__);
 	unlock_kernel();
