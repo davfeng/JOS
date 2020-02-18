@@ -4,8 +4,14 @@
 #include <inc/types.h>
 #include <inc/stdio.h>
 #include <inc/stdarg.h>
+#include <kern/spinlock.h>
 
 
+struct spinlock print_lock = {
+#ifdef DEBUG_SPINLOCK
+	.name = "print_lock"
+#endif
+};
 static void
 putch(int ch, int *cnt)
 {
