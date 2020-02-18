@@ -326,6 +326,14 @@ _alltraps:
   call trap
   addl $4, %esp
 
+.globl _trapret
+_trapret:
+  popal
+  popl %es
+  popl %ds
+  add $0x8, %esp
+  iret
+
 # vector table
 .data
 .globl vectors
