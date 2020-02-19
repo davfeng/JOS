@@ -250,6 +250,7 @@ trap(struct Trapframe *tf)
 	// the interrupt path.
 	assert(!(read_eflags() & FL_IF));
 
+	struct Trapframe *tmpframe = tf;
 	//cprintf("Incoming TRAP frame at %p\n", tf);
 	if ((tf->tf_cs & 3) == 3) {
 		// Trapped from user mode.
@@ -281,14 +282,8 @@ trap(struct Trapframe *tf)
 	// Dispatch based on what type of trap occurred
 	trap_dispatch(tf);
 
-	// If we made it to this point, then no other environment was
-	// scheduled, so we should return to the current environment
-	// if doing so makes sense.
-	if (curenv && curenv->env_status == ENV_RUNNING){
-		env_run(curenv);
-	}
-	else
-		sched_yield();
+	unlock_kernel();
+	*tmpframe = curenv->env_tf;
 }
 
 
