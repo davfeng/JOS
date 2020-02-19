@@ -34,10 +34,12 @@ cprintf(const char *fmt, ...)
 	va_list ap;
 	int cnt;
 
+	spin_lock(&print_lock);
 	va_start(ap, fmt);
 	cnt = vcprintf(fmt, ap);
 	va_end(ap);
 
+	spin_unlock(&print_lock);
 	return cnt;
 }
 
