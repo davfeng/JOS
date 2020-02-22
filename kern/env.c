@@ -230,7 +230,7 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 	// Set the basic status variables.
 	e->env_parent_id = parent_id;
 	e->env_type = ENV_TYPE_USER;
-	e->env_status = ENV_RUNNABLE;
+	e->env_status = ENV_NOT_RUNNABLE;
 	e->env_runs = 0;
 
 	// Clear out all the saved register state,
@@ -418,7 +418,7 @@ load_icode(struct Env *e, uint8_t *binary)
 
 	region_alloc(e, (void*)(USTACKTOP - PGSIZE), PGSIZE);
 	memset((void*)(USTACKTOP - PGSIZE), 0, PGSIZE);
-	lcr3(PADDR(kern_pgdir));
+	e->env_status = ENV_RUNNABLE;
 }
 
 //
