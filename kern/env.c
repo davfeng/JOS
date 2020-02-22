@@ -19,6 +19,11 @@ struct Env *envs = NULL;		// All environments
 static struct Env *env_free_list;	// Free environment list
 					// (linked by Env->env_link)
 
+struct spinlock envfreelist_lock = {
+#ifdef DEBUG_SPINLOCK
+	.name = "envfreelist_lock"
+#endif
+};
 #define ENVGENSHIFT	12		// >= LOGNENV
 
 // Global descriptor table.
@@ -214,12 +219,22 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 	int r;
 	struct Env *e;
 
-	if (!(e = env_free_list))
+	spin_lock(&envfreelist_lock);
+	if (!(e = env_free_list)) {
+		spin_unlock(&envfreelist_lock);
 		return -E_NO_FREE_ENV;
+	}
 
+	// commit the allocation
+	env_free_list = e->env_link;
+	spin_unlock(&envfreelist_lock);
+
+	spin_lock(&e->lock);
 	// Allocate and set up the page directory for this environment.
-	if ((r = env_setup_vm(e)) < 0)
+	if ((r = env_setup_vm(e)) < 0) {
+		spin_unlock(&e->lock);
 		return r;
+	}
 
 	// Generate an env_id for this environment.
 	generation = (e->env_id + (1 << ENVGENSHIFT)) & ~(NENV - 1);
@@ -230,6 +245,8 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 	// Set the basic status variables.
 	e->env_parent_id = parent_id;
 	e->env_type = ENV_TYPE_USER;
+
+	// Set it as not runnable because code is not ready
 	e->env_status = ENV_NOT_RUNNABLE;
 	e->env_runs = 0;
 
@@ -263,13 +280,12 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 	// Also clear the IPC receiving flag.
 	e->env_ipc_recving = 0;
 
-	// commit the allocation
-	env_free_list = e->env_link;
 	*newenv_store = e;
 
 	//enable the interrupt after entering user mode	
 	e->env_tf.tf_eflags |= FL_IF;
 	cprintf("[%08x] new env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
+	spin_unlock(&e->lock);
 	return 0;
 }
 
@@ -457,6 +473,7 @@ env_free(struct Env *e)
 	// If freeing the current environment, switch to kern_pgdir
 	// before freeing the page directory, just in case the page
 	// gets reused.
+	spin_lock(&e->lock);
 	if (e == curenv)
 		lcr3(PADDR(kern_pgdir));
 
@@ -493,8 +510,11 @@ env_free(struct Env *e)
 
 	// return the environment to the free list
 	e->env_status = ENV_FREE;
+	spin_lock(&envfreelist_lock);
 	e->env_link = env_free_list;
 	env_free_list = e;
+	spin_unlock(&envfreelist_lock);
+	spin_unlock(&e->lock);
 }
 
 //
@@ -508,10 +528,13 @@ env_destroy(struct Env *e)
 	// If e is currently running on other CPUs, we change its state to
 	// ENV_DYING. A zombie environment will be freed the next time
 	// it traps to the kernel.
+	spin_lock(&e->lock);
 	if (e->env_status == ENV_RUNNING && curenv != e) {
 		e->env_status = ENV_DYING;
+		spin_unlock(&e->lock);
 		return;
 	}
+	spin_unlock(&e->lock);
 
 	env_free(e);
 
