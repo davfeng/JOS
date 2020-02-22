@@ -20,6 +20,11 @@ pde_t *kern_pgdir;		// Kernel's initial page directory
 struct PageInfo *pages;		// Physical page state array
 static struct PageInfo *page_free_list;	// Free list of physical pages
 
+struct spinlock pgfreelist_lock = {
+#ifdef DEBUG_SPINLOCK
+	.name = "pgfreelist_lock"
+#endif
+};
 
 // --------------------------------------------------------------
 // Detect machine's physical memory setup.
@@ -408,11 +413,18 @@ page_alloc(int alloc_flags)
 {
 	// Fill this function in
 	//cprintf("page_free_list = 0x%x\n",page_free_list);
-	struct PageInfo *pi = page_free_list;
-	if( !pi )
+	struct PageInfo *pi;
+
+	spin_lock(&pgfreelist_lock);
+	if (!(pi = page_free_list)) {
+		spin_unlock(&pgfreelist_lock);
 		return NULL;
+	}
+
 	page_free_list = pi->pp_link;
 	pi->pp_link = 0;
+	spin_unlock(&pgfreelist_lock);
+
 	if( alloc_flags & ALLOC_ZERO){
 		memset(page2kva(pi), 0, PGSIZE);
 	}
@@ -430,8 +442,11 @@ page_free(struct PageInfo *pp)
 	// Hint: You may want to panic if pp->pp_ref is nonzero or pp->pp_link is not null
 	if(pp->pp_ref ||  pp->pp_link)
 		panic("page should not be freed!\n");
+
+	spin_lock(&pgfreelist_lock);
 	pp->pp_link = page_free_list;
 	page_free_list = pp;
+	spin_unlock(&pgfreelist_lock);
 }
 
 //
