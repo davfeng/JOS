@@ -11,6 +11,7 @@
 #include <kern/syscall.h>
 #include <kern/console.h>
 #include <kern/sched.h>
+#include <kern/spinlock.h>
 
 // Print a string to the system console.
 // The string is exactly 'len' characters long.
@@ -355,10 +356,12 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 		}
 	}
 
+	spin_lock(&e->lock);
 	e->env_ipc_recving = 0;
 	e->env_ipc_from = curenv->env_id;
 	e->env_ipc_value = value;
 	e->env_ipc_perm = perm;
+	spin_unlock(&e->lock);
 	
 	if((uintptr_t)srcva < UTOP && e->env_ipc_dstva){
 		sys_page_map(curenv->env_id, srcva, envid, e->env_ipc_dstva, perm);
@@ -389,9 +392,11 @@ sys_ipc_recv(void *dstva)
 	if((uintptr_t)dstva < UTOP && ((uintptr_t)dstva % PGSIZE != 0)){
 		return -E_INVAL;
 	}
+	spin_lock(&curenv->lock);
 	curenv->env_ipc_recving = 1;
 	curenv->env_status = ENV_NOT_RUNNABLE;
 	curenv->env_ipc_dstva = dstva;
+	spin_unlock(&curenv->lock);
 	return 0;
 }
 

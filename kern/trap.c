@@ -16,6 +16,7 @@
 
 static struct Taskstate ts;
 
+extern struct spinlock sched_lock;
 /* For debugging, so print_trapframe can distinguish between printing
  * a saved trapframe and printing the current trapframe and print some
  * additional information in the latter case.
@@ -241,10 +242,8 @@ trap(struct Trapframe *tf)
 	if (panicstr)
 		asm volatile("hlt");
 
-	// Re-acqurie the big kernel lock if we were halted in
-	if (xchg(&thiscpu->cpu_status, CPU_STARTED) == CPU_HALTED){
-		lock_kernel();
-	}
+	xchg(&thiscpu->cpu_status, CPU_STARTED);
+
 	// Check that interrupts are disabled.  If this assertion
 	// fails, DO NOT be tempted to fix it by inserting a "cli" in
 	// the interrupt path.
@@ -257,7 +256,6 @@ trap(struct Trapframe *tf)
 		// Acquire the big kernel lock before doing any
 		// serious kernel work.
 		// LAB 4: Your code here.
-		lock_kernel();
 		assert(curenv);
 
 		// Garbage collect if current enviroment is a zombie
@@ -282,7 +280,8 @@ trap(struct Trapframe *tf)
 	// Dispatch based on what type of trap occurred
 	trap_dispatch(tf);
 
-	unlock_kernel();
+	if (!curenv)
+		return;
 	*tmpframe = curenv->env_tf;
 }
 
@@ -352,9 +351,8 @@ page_fault_handler(struct Trapframe *tf)
 		tf->tf_esp = (uintptr_t)ustk;
 		tf->tf_eip = (uintptr_t)curenv->env_pgfault_upcall;
 		user_mem_assert(curenv, (const void*)tf->tf_eip, PGSIZE, 0);
+		spin_lock(&sched_lock);
 		env_run(curenv);
-		//unlock_kernel();
-		//env_pop_tf(tf);
 	}
 	// Destroy the environment that caused the fault.
 	cprintf("[%08x] user fault va %08x ip %08x\n",

@@ -17,7 +17,7 @@
 
 static void boot_aps(void);
 
-
+static volatile uint32_t bspinit;
 void
 i386_init(void)
 {
@@ -51,9 +51,6 @@ i386_init(void)
 #ifndef APICTIMER
        irq_setmask_8259A(irq_mask_8259A & ~(1 << IRQ_TIMER));
 #endif
-	// Acquire the big kernel lock before waking up APs
-	// Your code here:
-	lock_kernel();
 	// Starting non-boot CPUs
 	boot_aps();
 
@@ -66,6 +63,7 @@ i386_init(void)
 	//ENV_CREATE(user_yield, ENV_TYPE_USER);
 	ENV_CREATE(user_dumbfork, ENV_TYPE_USER);
 #endif // TEST*
+	xchg(&bspinit, 1); // tell smps the BSP is done
 	// Schedule and run the first user environment!
 	sched_yield();
 }
@@ -118,12 +116,9 @@ mp_main(void)
 	// to start running processes on this CPU.  But make sure that
 	// only one CPU can enter the scheduler at a time!
 	//
-	// Your code here:
-	lock_kernel();
+	while (bspinit == 0)
+		;
 	sched_yield();
-
-	// Remove this after you finish Exercise 6
-	for (;;);
 }
 
 /*

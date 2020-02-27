@@ -24,6 +24,8 @@ struct spinlock envfreelist_lock = {
 	.name = "envfreelist_lock"
 #endif
 };
+
+extern struct spinlock sched_lock;
 #define ENVGENSHIFT	12		// >= LOGNENV
 
 // Global descriptor table.
@@ -221,6 +223,7 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 
 	spin_lock(&envfreelist_lock);
 	if (!(e = env_free_list)) {
+		e->lock.name = "envxx";
 		spin_unlock(&envfreelist_lock);
 		return -E_NO_FREE_ENV;
 	}
@@ -599,13 +602,16 @@ env_run(struct Env *e)
 	if(curenv && curenv->env_status == ENV_RUNNING){
 		curenv->env_status = ENV_RUNNABLE;
 	}
+	if (e->env_status == ENV_RUNNING)
+		panic("thiscpu is %d , running cpu is %d running the same env on different two CPUS %s\n", thiscpu->cpu_id, e->env_cpunum, __func__);
 	curenv = e;
 	curenv->env_status = ENV_RUNNING;
 	curenv->env_runs++;
 
+	spin_unlock(&sched_lock);
 	lcr3(PADDR(curenv->env_pgdir));
 	//cprintf("unlock_kernel before %s\n", __func__);
-	unlock_kernel();
+	//unlock_kernel();
 	//cprintf("cpu%d: %s\n", thiscpu->cpu_id, __func__);
 	//cprintf("pop trap frame\n");
 	//print_trapframe(&curenv->env_tf);
