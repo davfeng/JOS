@@ -610,11 +610,6 @@ env_run(struct Env *e)
 
 	spin_unlock(&sched_lock);
 	lcr3(PADDR(curenv->env_pgdir));
-	//cprintf("unlock_kernel before %s\n", __func__);
-	//unlock_kernel();
-	//cprintf("cpu%d: %s\n", thiscpu->cpu_id, __func__);
-	//cprintf("pop trap frame\n");
-	//print_trapframe(&curenv->env_tf);
 	env_pop_tf(&curenv->env_tf);
 }
 
