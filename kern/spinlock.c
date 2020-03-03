@@ -39,14 +39,15 @@ get_caller_pcs(uint32_t pcs[])
 static int
 holding(struct spinlock *lock)
 {
-	return lock->locked && lock->cpu == thiscpu;
+	return (lock->cpu == thiscpu);
 }
 #endif
 
 void
 __spin_initlock(struct spinlock *lk, char *name)
 {
-	lk->locked = 0;
+	lk->current_ticket = 0;
+	lk->next_ticket = 0;
 #ifdef DEBUG_SPINLOCK
 	lk->name = name;
 	lk->cpu = 0;
@@ -60,16 +61,15 @@ __spin_initlock(struct spinlock *lk, char *name)
 void
 spin_lock(struct spinlock *lk)
 {
+	uint32_t t;
 #ifdef DEBUG_SPINLOCK
 	if (holding(lk))
 		panic("CPU %d cannot acquire %s: already holding", cpunum(), lk->name);
 #endif
 
-	// The xchg is atomic.
-	// It also serializes, so that reads after acquire are not
-	// reordered before it. 
-	while (xchg(&lk->locked, 1) != 0)
-		asm volatile ("pause");
+	t = xadd(&lk->next_ticket, 1);
+	while (t != lk->current_ticket)
+		asm volatile("pause");
 
 	// Record info about lock acquisition for debugging.
 #ifdef DEBUG_SPINLOCK
@@ -107,11 +107,6 @@ spin_unlock(struct spinlock *lk)
 	lk->cpu = 0;
 #endif
 
-	// The xchg instruction is atomic (i.e. uses the "lock" prefix) with
-	// respect to any other instruction which references the same memory.
-	// x86 CPUs will not reorder loads/stores across locked instructions
-	// (vol 3, 8.2.2). Because xchg() is implemented using asm volatile,
-	// gcc will not reorder C statements across the xchg.
-	xchg(&lk->locked, 0);
+	lk->current_ticket++;
 	asm volatile("pause");
 }

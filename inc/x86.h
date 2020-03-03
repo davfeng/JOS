@@ -261,4 +261,13 @@ xchg(volatile uint32_t *addr, uint32_t newval)
 	return result;
 }
 
+static inline uint32_t
+xadd(volatile uint32_t *addr, uint32_t incval)
+{
+    uint32_t result = incval;
+   asm volatile ("lock; xaddl %0, %1"
+			: "+r" (result), "+m" (*addr)
+			: : "cc");
+	return result;
+}
 #endif /* !JOS_INC_X86_H */

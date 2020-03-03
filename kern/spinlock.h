@@ -8,8 +8,9 @@
 
 // Mutual exclusion lock.
 struct spinlock {
-	unsigned locked;       // Is the lock held?
-
+//	unsigned locked;       // Is the lock held?
+	volatile uint32_t next_ticket;
+	volatile uint32_t current_ticket;
 #ifdef DEBUG_SPINLOCK
 	// For debugging:
 	char *name;            // Name of lock.
