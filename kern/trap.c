@@ -177,16 +177,19 @@ print_regs(struct PushRegs *regs)
 }
 
 static void
-trap_dispatch(struct Trapframe *tf)
+trap_dispatch(struct Trapframe *tf, struct Trapframe *envtf)
 {
 	// Handle processor exceptions.
 	// LAB 3: Your code here.
 	if (tf->tf_trapno == T_SYSCALL) {
 		// tf_regs.reg_eax is the return value, now put it in the stack,
 		// later env_run will pop it to register
-		tf->tf_regs.reg_eax = syscall(tf->tf_regs.reg_eax, tf->tf_regs.reg_edx, 
-									  tf->tf_regs.reg_ecx, tf->tf_regs.reg_ebx, 
-									  tf->tf_regs.reg_edi, tf->tf_regs.reg_esi);
+		tf->tf_regs.reg_eax = syscall(envtf->tf_regs.reg_eax,
+									envtf->tf_regs.reg_edx,
+									envtf->tf_regs.reg_ecx,
+									envtf->tf_regs.reg_ebx,
+									envtf->tf_regs.reg_edi,
+									envtf->tf_regs.reg_esi);
 		return;
 	}
 
@@ -196,7 +199,7 @@ trap_dispatch(struct Trapframe *tf)
 	}
 
 	if (tf->tf_trapno == T_PGFLT) {
-		page_fault_handler(tf);
+		page_fault_handler(envtf);
 		return;
 	}
 	// Handle spurious interrupts
@@ -249,7 +252,9 @@ trap(struct Trapframe *tf)
 	// the interrupt path.
 	assert(!(read_eflags() & FL_IF));
 
-	struct Trapframe *tmpframe = tf;
+	// Record that tf is the last real trapframe so
+	// print_trapframe can print some additional information.
+	last_tf = tf;
 	//cprintf("Incoming TRAP frame at %p\n", tf);
 	if ((tf->tf_cs & 3) == 3) {
 		// Trapped from user mode.
@@ -269,20 +274,10 @@ trap(struct Trapframe *tf)
 		// into 'curenv->env_tf', so that running the environment
 		// will restart at the trap point.
 		curenv->env_tf = *tf;
-		// The trapframe on the stack should be ignored from here on.
-		tf = &curenv->env_tf;
 	}
 
-	// Record that tf is the last real trapframe so
-	// print_trapframe can print some additional information.
-	last_tf = tf;
-
 	// Dispatch based on what type of trap occurred
-	trap_dispatch(tf);
-
-	if (!curenv)
-		return;
-	*tmpframe = curenv->env_tf;
+	trap_dispatch(tf, &curenv->env_tf);
 }
 
 
