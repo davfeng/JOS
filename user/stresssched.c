@@ -18,6 +18,7 @@ umain(int argc, char **argv)
 		return;
 	}
 
+	cprintf("[%08x] fork finished on CPU %d\n", thisenv->env_id, thisenv->env_cpunum);
 	// Wait for the parent to finish forking
 	while (envs[ENVX(parent)].env_status != ENV_FREE)
 		asm volatile("pause");

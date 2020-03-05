@@ -42,6 +42,7 @@ _start = RELOC(entry)
 
 .globl entry
 entry:
+	cli
 	movw	$0x1234,0x472			# warm boot
 
 	# We haven't set up virtual memory yet, so we're running from

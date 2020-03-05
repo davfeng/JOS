@@ -9,6 +9,9 @@
 #include <kern/spinlock.h>
 #include <kern/kdebug.h>
 
+void pushcli(void);
+void popcli(void);
+
 #ifdef DEBUG_SPINLOCK
 // Record the current call stack in pcs[] by following the %ebp chain.
 static void
@@ -55,6 +58,7 @@ void
 spin_lock(struct spinlock *lk)
 {
 	uint32_t t;
+	pushcli();
 #ifdef DEBUG_SPINLOCK
 	if (holding(lk))
 		panic("CPU %d cannot acquire %s: already holding", cpunum(), lk->name);
@@ -102,4 +106,32 @@ spin_unlock(struct spinlock *lk)
 
 	lk->current_ticket++;
 	asm volatile("pause");
+	popcli();
+}
+
+// Pushcli/popcli are like cli/sti except that they are matched:
+// it takes two popcli to undo two pushcli.  Also, if interrupts
+// are off, then pushcli, popcli leaves them off.
+
+void
+pushcli(void)
+{
+	int eflags;
+
+	eflags = read_eflags();
+	asm volatile("cli");
+	if (thiscpu->ncli == 0)
+		thiscpu->intena = eflags & FL_IF;
+	thiscpu->ncli += 1;
+}
+
+void
+popcli(void)
+{
+	if (read_eflags() & FL_IF)
+		panic("popcli - interruptible");
+	if (--thiscpu->ncli < 0)
+		panic("popcli");
+	if (thiscpu->ncli == 0 && thiscpu->intena)
+		asm volatile("sti");
 }

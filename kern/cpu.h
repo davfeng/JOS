@@ -21,6 +21,8 @@ enum {
 struct CpuInfo {
 	uint8_t cpu_id;                 // Local APIC ID; index into cpus[] below
 	volatile unsigned cpu_status;   // The status of the CPU
+	uint32_t ncli;                  // Track the number of pushcli
+	uint32_t intena;                // If interrupt enabled before pushcli
 	struct Env *cpu_env;            // The currently-running environment.
 	struct Taskstate cpu_ts;        // Used by x86 to find stack for interrupt
 };
