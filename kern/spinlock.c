@@ -9,8 +9,6 @@
 #include <kern/spinlock.h>
 #include <kern/kdebug.h>
 
-void pushcli(void);
-void popcli(void);
 
 #ifdef DEBUG_SPINLOCK
 // Record the current call stack in pcs[] by following the %ebp chain.

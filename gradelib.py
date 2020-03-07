@@ -422,6 +422,7 @@ class Runner():
             try:
                 if self.gdb is None:
                     sys.exit(1)
+                print(self.qemu.output)
                 self.qemu.kill()
                 self.__react(self.reactors, 5)
                 self.gdb.close()

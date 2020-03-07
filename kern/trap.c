@@ -78,7 +78,8 @@ trap_init(void)
 		SETGATE(idt[i], 0, GD_KT, vectors[i], 0);
 	}
 	SETGATE(idt[T_BRKPT], 0, GD_KT, vectors[T_BRKPT], 3);
- 	SETGATE(idt[T_SYSCALL], 0, GD_KT, vectors[T_SYSCALL], 3);
+	SETGATE(idt[T_SYSCALL], 1, GD_KT, vectors[T_SYSCALL], 3);
+	SETGATE(idt[T_PGFLT], 1, GD_KT, vectors[T_PGFLT], 3);
 	// Per-CPU setup 
 	trap_init_percpu();
 }
@@ -190,6 +191,7 @@ trap_dispatch(struct Trapframe *tf, struct Trapframe *envtf)
 									envtf->tf_regs.reg_ebx,
 									envtf->tf_regs.reg_edi,
 									envtf->tf_regs.reg_esi);
+		envtf->tf_regs.reg_eax = tf->tf_regs.reg_eax;
 		return;
 	}
 
@@ -220,7 +222,9 @@ trap_dispatch(struct Trapframe *tf, struct Trapframe *envtf)
 #ifdef APICTIMER
 		lapic_eoi();
 #endif
-		sched_yield();
+		if (((uint32_t)tf + 2*sizeof(struct Trapframe)) > thiscpu->cpu_ts.ts_esp0){
+			sched_yield();
+		}
 		return;
 	}
 
@@ -247,14 +251,6 @@ trap(struct Trapframe *tf)
 
 	xchg(&thiscpu->cpu_status, CPU_STARTED);
 
-	// Check that interrupts are disabled.  If this assertion
-	// fails, DO NOT be tempted to fix it by inserting a "cli" in
-	// the interrupt path.
-	assert(!(read_eflags() & FL_IF));
-
-	// Record that tf is the last real trapframe so
-	// print_trapframe can print some additional information.
-	last_tf = tf;
 	//cprintf("Incoming TRAP frame at %p\n", tf);
 	if ((tf->tf_cs & 3) == 3) {
 		// Trapped from user mode.
@@ -274,8 +270,14 @@ trap(struct Trapframe *tf)
 		// into 'curenv->env_tf', so that running the environment
 		// will restart at the trap point.
 		curenv->env_tf = *tf;
+	} else {
+		// Interrupt happen during syscall/page fault handler/kernel hlt
+		// print_trapframe(last_tf);
 	}
 
+	// Record that tf is the last real trapframe so
+	// print_trapframe can print some additional information.
+	last_tf = tf;
 	// Dispatch based on what type of trap occurred
 	trap_dispatch(tf, &curenv->env_tf);
 }

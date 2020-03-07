@@ -602,7 +602,6 @@ env_run(struct Env *e)
 	if(curenv && curenv->env_status == ENV_RUNNING){
 		curenv->env_status = ENV_RUNNABLE;
 	}
-	cprintf("running env 0x%08x\n", e->env_id);
 	if (e->env_status == ENV_RUNNING)
 		panic("thiscpu is %d , running cpu is %d running the same env on different two CPUS %s\n", thiscpu->cpu_id, e->env_cpunum, __func__);
 	curenv = e;
@@ -610,6 +609,7 @@ env_run(struct Env *e)
 	curenv->env_runs++;
 
 	spin_unlock(&sched_lock);
+	asm volatile("cli");
 	lcr3(PADDR(curenv->env_pgdir));
 	env_pop_tf(&curenv->env_tf);
 }

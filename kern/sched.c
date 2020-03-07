@@ -7,7 +7,7 @@
 
 void sched_halt(void);
 
-static uint32_t start;
+static volatile uint32_t start;
 struct spinlock sched_lock = {
 #ifdef DEBUG_SPINLOCK
 	.name = "sched_lock"
@@ -34,8 +34,8 @@ sched_yield(void)
 	// no runnable environments, simply drop through to the code
 	// below to halt the cpu.
 	// LAB 4: Your code here.
-	i = start;
 	spin_lock(&sched_lock);
+	i = start;
 	for(; i < NENV; i++){
 		if ((envs[i].env_status == ENV_RUNNABLE)){
 			idle = &envs[i];
