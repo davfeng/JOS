@@ -614,3 +614,31 @@ env_run(struct Env *e)
 	env_pop_tf(&curenv->env_tf);
 }
 
+//
+// Sleep on specific address
+//
+void sleep(void *chan)
+{
+	if (!curenv)
+		panic("curenv is NULL in sleep %s\n", __func__);
+
+	spin_lock(&sched_lock);
+	curenv->env_status = ENV_INTERRUPTIBLE;
+	spin_unlock(&sched_lock);
+	sched_yield();
+}
+
+//
+// Wakeup all processes sleeping on the address
+
+void wakeup(void *chan)
+{
+	int i = 0;
+	spin_lock(&sched_lock);
+	for(; i < NENV; i++){
+		if (envs[i].env_status == ENV_INTERRUPTIBLE){
+			envs[i].env_status = ENV_RUNNABLE;
+		}
+	}
+	spin_unlock(&sched_lock);
+}
