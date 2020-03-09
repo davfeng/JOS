@@ -5,6 +5,8 @@
 
 #include <kern/picirq.h>
 
+#define HZ (100)
+#define LATCH (1193180/HZ)
 
 // Current IRQ mask.
 // Initial IRQ mask has interrupt 2 enabled (for slave 8259A).
@@ -64,6 +66,10 @@ pic_init(void)
 	outb(IO_PIC2, 0x68);               /* OCW3 */
 	outb(IO_PIC2, 0x0a);               /* OCW3 */
 
+	// Configure the 8254 counter.
+	outb(0x43, 0x36);      /* binary, mode 3, LSB/MSB, ch 0 */
+	outb(0x40, (uint8_t)(LATCH & 0xff));    /* LSB */
+	outb(0x40, (uint8_t)(LATCH >> 8));    /* MSB */
 	if (irq_mask_8259A != 0xFFFF)
 		irq_setmask_8259A(irq_mask_8259A);
 }

@@ -70,11 +70,8 @@ lapic_init(void)
 	// If we cared more about precise timekeeping,
 	// TICR would be calibrated using an external time source.
 	lapicw(TDCR, X1);
-#ifdef APICTIMER
-	lapicw(TIMER, PERIODIC | (IRQ_OFFSET + IRQ_TIMER));
-#else
-	lapicw(TIMER, MASKED | PERIODIC | (IRQ_OFFSET + IRQ_TIMER));
-#endif
+	lapicw(TIMER, PERIODIC | (IRQ_OFFSET + IRQ_APICTIMER));
+	// lapicw(TIMER, MASKED | PERIODIC | (IRQ_OFFSET + IRQ_TIMER));
 	lapicw(TICR, 10000000); 
 
 	// Leave LINT0 of the BSP enabled so that it can get

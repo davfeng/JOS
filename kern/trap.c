@@ -16,6 +16,7 @@
 
 static struct Taskstate ts;
 
+long volatile jiffies;
 extern struct spinlock sched_lock;
 /* For debugging, so print_trapframe can distinguish between printing
  * a saved trapframe and printing the current trapframe and print some
@@ -213,15 +214,26 @@ trap_dispatch(struct Trapframe *tf, struct Trapframe *envtf)
 		return;
 	}
 
+	//
+	// Handle ISA(8254) timer, increment the ticks.
+	// 8259 master is configured as automatic EOI
+	// mode, need not send EOI here
+	//
+	if (tf->tf_trapno == IRQ_OFFSET + IRQ_TIMER) {
+		//
+		// 8259 interrupts only are sent to CPU0
+		// need not spin lock to protect jiffies
+		//
+		jiffies++;
+		return;
+	}
 	// Handle clock interrupts. Don't forget to acknowledge the
 	// interrupt using lapic_eoi() before calling the scheduler!
 	// LAB 4: Your code here.
 
-	if (tf->tf_trapno == IRQ_OFFSET + IRQ_TIMER) {
+	if (tf->tf_trapno == IRQ_OFFSET + IRQ_APICTIMER) {
 		//cprintf("cpu%d:handling clock interrupt\n", thiscpu->cpu_id);
-#ifdef APICTIMER
 		lapic_eoi();
-#endif
 		if (((uint32_t)tf + 2*sizeof(struct Trapframe)) > thiscpu->cpu_ts.ts_esp0){
 			sched_yield();
 		}

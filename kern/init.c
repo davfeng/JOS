@@ -48,9 +48,7 @@ i386_init(void)
 	// Lab 4 multitasking initialization functions
 	pic_init();
 
-#ifndef APICTIMER
-       irq_setmask_8259A(irq_mask_8259A & ~(1 << IRQ_TIMER));
-#endif
+	irq_setmask_8259A(irq_mask_8259A & ~(1 << IRQ_TIMER));
 	// Starting non-boot CPUs
 	boot_aps();
 

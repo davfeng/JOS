@@ -38,6 +38,7 @@
 #define IRQ_SPURIOUS     7
 #define IRQ_IDE         14
 #define IRQ_ERROR       19
+#define IRQ_APICTIMER   20
 
 #ifndef __ASSEMBLER__
 
