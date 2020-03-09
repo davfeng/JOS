@@ -227,6 +227,25 @@ trap_dispatch(struct Trapframe *tf, struct Trapframe *envtf)
 		jiffies++;
 		return;
 	}
+
+	if (tf->tf_trapno == IRQ_OFFSET + IRQ_KBD) {
+		//
+		// keyboard interrupt handler
+		//
+		kbd_intr();
+		cprintf("cpu%d:keyboard interupt\n", thiscpu->cpu_id);
+		return;
+	}
+
+	if (tf->tf_trapno == IRQ_OFFSET + IRQ_SERIAL1) {
+		//
+		// serial interrupt handler
+		//
+		serial_intr();
+		cprintf("cpu%d:serial1 interupt\n", thiscpu->cpu_id);
+		return;
+	}
+
 	// Handle clock interrupts. Don't forget to acknowledge the
 	// interrupt using lapic_eoi() before calling the scheduler!
 	// LAB 4: Your code here.

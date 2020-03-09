@@ -49,6 +49,9 @@ i386_init(void)
 	pic_init();
 
 	irq_setmask_8259A(irq_mask_8259A & ~(1 << IRQ_TIMER));
+	irq_setmask_8259A(irq_mask_8259A & ~(1 << IRQ_KBD));
+	irq_setmask_8259A(irq_mask_8259A & ~(1 << IRQ_SERIAL1));
+	irq_setmask_8259A(irq_mask_8259A & ~(1 << IRQ_SERIAL2));
 	// Starting non-boot CPUs
 	boot_aps();
 
