@@ -14,6 +14,9 @@
 #include <kern/picirq.h>
 #include <kern/cpu.h>
 #include <kern/spinlock.h>
+#include <kern/fs.h>
+#include <kern/buf.h>
+#include <kern/defs.h>
 
 static void boot_aps(void);
 
@@ -48,10 +51,8 @@ i386_init(void)
 	// Lab 4 multitasking initialization functions
 	pic_init();
 
-	irq_setmask_8259A(irq_mask_8259A & ~(1 << IRQ_TIMER));
-	irq_setmask_8259A(irq_mask_8259A & ~(1 << IRQ_KBD));
-	irq_setmask_8259A(irq_mask_8259A & ~(1 << IRQ_SERIAL1));
-	irq_setmask_8259A(irq_mask_8259A & ~(1 << IRQ_SERIAL2));
+	ideinit();
+	binit();
 	// Starting non-boot CPUs
 	boot_aps();
 

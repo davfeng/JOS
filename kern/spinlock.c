@@ -38,7 +38,7 @@ holding(struct spinlock *lock)
 #endif
 
 void
-__spin_initlock(struct spinlock *lk, char *name)
+spin_initlock(struct spinlock *lk, char *name)
 {
 	lk->current_ticket = 0;
 	lk->next_ticket = 0;

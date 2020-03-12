@@ -13,6 +13,7 @@
 #include <kern/picirq.h>
 #include <kern/cpu.h>
 #include <kern/spinlock.h>
+#include <kern/defs.h>
 
 static struct Taskstate ts;
 
@@ -246,6 +247,14 @@ trap_dispatch(struct Trapframe *tf, struct Trapframe *envtf)
 		return;
 	}
 
+	if (tf->tf_trapno == IRQ_OFFSET + IRQ_IDE) {
+		//
+		// ide disk interrupt handler
+		//
+		ideintr();
+		cprintf("cpu%d:IDE interupt\n", thiscpu->cpu_id);
+		return;
+	}
 	// Handle clock interrupts. Don't forget to acknowledge the
 	// interrupt using lapic_eoi() before calling the scheduler!
 	// LAB 4: Your code here.

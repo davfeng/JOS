@@ -12,6 +12,9 @@
 #include <kern/console.h>
 #include <kern/sched.h>
 #include <kern/spinlock.h>
+#include <kern/fs.h>
+#include <kern/buf.h>
+#include <kern/defs.h>
 
 // Print a string to the system console.
 // The string is exactly 'len' characters long.
@@ -400,6 +403,20 @@ sys_ipc_recv(void *dstva)
 	return 0;
 }
 
+static int
+sys_disk_read(uint8_t dev, void* p, uint32_t blkno, uint32_t num)
+{
+	struct buf *b;
+	b = bread(dev, blkno);
+	memmove(p, b->data, BSIZE);
+	return BSIZE;
+}
+
+static int
+sys_disk_write(uint8_t dev, void *p, uint32_t blkno, uint32_t num)
+{
+	return 0;
+}
 // Dispatches to the correct kernel function, passing the arguments.
 int32_t
 syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5)
@@ -437,6 +454,10 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		return sys_ipc_try_send((envid_t)a1, (int)a2, (void*)a3, (int)a4);
 	case SYS_ipc_recv:
 		return sys_ipc_recv((void*)a1); 
+	case SYS_disk_read:
+		return sys_disk_read((uint8_t)a1, (void*)a2, a3, a4);
+	case SYS_disk_write:
+		return sys_disk_write((uint8_t)a1, (void*)a2, a3, a4); 
 	default:
 		return -E_INVAL;
 	}

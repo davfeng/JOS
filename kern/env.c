@@ -620,7 +620,7 @@ env_run(struct Env *e)
 void sleep(void *chan)
 {
 	if (!curenv)
-		panic("curenv is NULL in sleep %s\n", __func__);
+		panic("curenv is NULL in %s\n", __func__);
 
 	spin_lock(&sched_lock);
 	curenv->env_status = ENV_INTERRUPTIBLE;

@@ -111,3 +111,14 @@ sys_ipc_recv(void *dstva)
 	return syscall(SYS_ipc_recv, 1, (uint32_t)dstva, 0, 0, 0, 0);
 }
 
+int
+sys_disk_read(uint8_t dev, void *p, uint32_t blkno, uint32_t num)
+{
+	return syscall(SYS_disk_read, 1, dev, (uint32_t)p, blkno, num, 0);
+}
+
+int
+sys_disk_write(uint8_t dev, void *p, uint32_t blkno, uint32_t num)
+{
+	return syscall(SYS_disk_write, 1, dev, (uint32_t)p, blkno, num, 0);
+}
