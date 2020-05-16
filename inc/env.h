@@ -26,7 +26,7 @@ typedef int32_t envid_t;
 // envid_ts less than 0 signify errors.  The envid_t == 0 is special, and
 // stands for the current environment.
 
-#define LOG2NENV		10
+#define LOG2NENV		5
 #define NENV			(1 << LOG2NENV)
 #define ENVX(envid)		((envid) & (NENV - 1))
 
@@ -43,6 +43,18 @@ enum {
 // Special environment types
 enum EnvType {
 	ENV_TYPE_USER = 0,
+	ENV_TYPE_IDLE = 1,
+};
+
+#define THREAD_SIZE (PGSIZE)
+
+struct thread_struct {
+	uint32_t ebp;
+	uint32_t edi;
+	uint32_t esi;
+	uint32_t esp;
+	uint32_t eip;
+	uint32_t esp0;
 };
 
 struct Env {
@@ -70,6 +82,9 @@ struct Env {
 
 	// Lock to protect data memeber
 	struct spinlock lock;
-};
+	void* chan;
+
+	struct thread_struct thread;
+}__attribute__ ((aligned (PGSIZE)));
 
 #endif // !JOS_INC_ENV_H

@@ -5,8 +5,6 @@
 
 #include <kern/picirq.h>
 
-#define HZ (100)
-#define LATCH (1193180/HZ)
 
 // Current IRQ mask.
 // Initial IRQ mask has interrupt 2 enabled (for slave 8259A).
@@ -55,7 +53,7 @@ pic_init(void)
 	outb(IO_PIC2+1, IRQ_SLAVE);		// ICW3
 	// NB Automatic EOI mode doesn't tend to work on the slave.
 	// Linux source code says it's "to be investigated".
-	outb(IO_PIC2+1, 0x01);			// ICW4
+	outb(IO_PIC2+1, 0x03);			// ICW4
 
 	// OCW3:  0ef01prs
 	//   ef:  0x = NOP, 10 = clear specific mask, 11 = set specific mask

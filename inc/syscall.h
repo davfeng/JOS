@@ -18,6 +18,8 @@ enum {
 	SYS_ipc_recv,
 	SYS_disk_read,
 	SYS_disk_write,
+	SYS_dummy,
+	SYS_sleep,
 	NSYSCALLS
 };
 

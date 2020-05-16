@@ -64,9 +64,19 @@ bget(uint32_t dev, uint32_t blockno)
 	// Is the block already cached?
 	for (b = bcache.head.next; b != &bcache.head; b = b->next) {
 		if (b->dev == dev && b->blockno == blockno) {
-			b->refcnt++;
-			spin_unlock(&bcache.lock);
-			return b;
+			if (!(b->flags & B_BUSY)) {
+				b->flags |= B_BUSY;
+				spin_unlock(&bcache.lock);
+				return b;
+			}
+
+			while ((b->flags & B_BUSY) && (!(b->flags & B_VALID)))
+				sleep(b, &bcache.lock);
+
+			if (b->flags & B_VALID) {
+				spin_unlock(&bcache.lock);
+				return b;
+			}
 		}
 	}
 
@@ -93,7 +103,7 @@ bread(uint32_t dev, uint32_t blockno)
 {
 	struct buf *b;
 	b = bget(dev, blockno);
-	if ((b->flags & B_VALID) == 0) {
+	if ((b->flags & B_BUSY) && (b->flags & B_VALID) == 0) {
 		iderw(b);
 	}
 	return b;

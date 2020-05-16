@@ -165,9 +165,11 @@ mem_init(void)
 	//////////////////////////////////////////////////////////////////////
 	// Make 'envs' point to an array of size 'NENV' of 'struct Env'.
 	// LAB 3: Your code here.
-
-	envs = (struct Env*)boot_alloc(NENV * sizeof(struct Env));
-	memset(envs, 0, NENV * sizeof(struct Env));
+	cprintf("size of env is %d\n", sizeof(struct Env));
+	envs = (struct Env*)boot_alloc(NENV * THREAD_SIZE);
+	cprintf("envs=%08x envs2=%08x,envs3=%08x env1023=%08x\n", envs, &envs[1], &envs[2], &envs[3], &envs[1023]);
+	//memset((void*)envs, 0, NENV * THREAD_SIZE);
+	cprintf("envs=%08x envs1=%08x, envs2=%08x,envs3=%08x\n", envs, &envs[1], &envs[2], &envs[3]);
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
 	// up the list of free physical pages. Once we've done so, all further

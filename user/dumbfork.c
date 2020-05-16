@@ -10,15 +10,17 @@ void
 umain(int argc, char **argv)
 {
 	envid_t who;
-	int i;
+	int i, j;
 
 	// fork a child process
 	who = dumbfork();
 
 	// print a message and yield to the other a few times
 	for (i = 0; i < (who ? 10 : 20); i++) {
+		j = 0;
 		cprintf("%d: I am the %s!\n", i, who ? "parent" : "child");
-		sys_yield();
+//		sys_yield();
+		while (j++<100000000);
 	}
 }
 

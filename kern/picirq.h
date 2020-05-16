@@ -15,6 +15,9 @@
 #define IRQ_SLAVE	2	// IRQ at which slave connects to master
 
 
+#define HZ (100)
+#define LATCH (1193180/HZ)
+
 #ifndef __ASSEMBLER__
 
 #include <inc/types.h>

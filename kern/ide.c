@@ -90,7 +90,8 @@ idestart(struct buf *b)
 
 	if (sector_per_block > 7) 
 		panic("idestart");
-
+	
+	cprintf("cpu%d, env %08x reads sector %d in %s\n", thiscpu->cpu_id, curenv->env_id, sector, __func__);
 	idewait(0);
 	outb(0x3f6, 0);  // generate interrupt
 	outb(IDE_SECT_COUNT_PORT, sector_per_block);  // number of sectors
@@ -124,12 +125,13 @@ ideintr(void)
 	idequeue = b->qnext;
 
 	// Read data if needed.
-	if(!(b->flags & B_DIRTY) && idewait(1) >= 0)
+	if (!(b->flags & B_DIRTY) && idewait(1) >= 0)
 		insl(0x1f0, b->data, BSIZE/4);
 
 	// Wake process waiting for this buf.
 	b->flags |= B_VALID;
 	b->flags &= ~B_DIRTY;
+	cprintf("curenv=%08x, wakeup process waiting on %08x\n", curenv->env_id, b);
 	wakeup(b);
 
 	// Start disk on next buf in queue.
@@ -147,16 +149,17 @@ iderw(struct buf *b)
 {
 	struct buf **pp;
 
+	spin_lock(&idelock);
+	cprintf("process %08x reads block %d now\n", curenv->env_id, b->blockno);
 	if((b->flags & (B_VALID|B_DIRTY)) == B_VALID)
 		panic("iderw: nothing to do");
 	if(b->dev != 0 && !havedisk1)
 		panic("iderw: ide disk 1 not present");
 
-	spin_lock(&idelock);  //DOC:acquire-lock
 
 	// Append b to idequeue.
 	b->qnext = 0;
-	for (pp=&idequeue; *pp; pp=&(*pp)->qnext)  //DOC:insert-queue
+	for (pp=&idequeue; *pp; pp=&(*pp)->qnext)
     	;
 	*pp = b;
 
@@ -164,9 +167,8 @@ iderw(struct buf *b)
 	if (idequeue == b)
 		idestart(b);
 
-	spin_unlock(&idelock);
 	// Wait for request to finish.
-	while ((b->flags & (B_VALID|B_DIRTY)) != B_VALID){
-		sleep(b);
+	while ((b->flags & (B_VALID|B_DIRTY)) != B_VALID) {
+		sleep(b, &idelock);
 	}
 }

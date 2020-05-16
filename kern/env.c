@@ -25,7 +25,38 @@ struct spinlock envfreelist_lock = {
 #endif
 };
 
-extern struct spinlock sched_lock;
+void __switch_to(struct Env *prev, struct Env *next);
+
+#define run_env(e) do {\
+	asm volatile("movl %0, %%esp  \n\t"\
+				"pushl %%edx      \n\t"\
+				"pushl $0         \n\t"\
+				"pushl %1         \n\t"\
+				"jmp __switch_to  \n\t"\
+				:                      \
+				:"m"(e->thread.esp), "m"(e->thread.eip), "d"(e)); \
+	} while (0)
+
+#define switch_to(prev, next, last) do {\
+	asm volatile("pushl %%esi\n\t"   \
+				"pushl %%edi\n\t"    \
+				"pushl %%ebp\n\t"    \
+				"movl %%esp, %0\n\t" \
+				"movl %3, %%esp\n\t" \
+				"movl $1f, %1\n\t"   \
+				"pushl %%edx\n\t"    \
+				"pushl %%eax\n\t"    \
+				"pushl %4\n\t"       \
+				"jmp __switch_to\n\t"\
+				"1:\n\t"             \
+  				"addl $8, %%esp\n\t" \
+				"popl %%ebp\n\t"     \
+				"popl %%edi\n\t"     \
+				"popl %%esi\n\t"     \
+				:"=m"(prev->thread.esp), "=m"(prev->thread.eip), "=b"(last)  \
+				:"m"(next->thread.esp), "m"(next->thread.eip), "a"(prev), "d"(next), "b"(prev)); \
+	} while (0)
+
 #define ENVGENSHIFT	12		// >= LOGNENV
 
 // Global descriptor table.
@@ -215,23 +246,26 @@ env_setup_vm(struct Env *e)
 //	-E_NO_MEM on memory exhaustion
 //
 int
-env_alloc(struct Env **newenv_store, envid_t parent_id)
+env_alloc(struct Env **newenv_store, enum EnvType type, envid_t parent_id)
 {
 	int32_t generation;
 	int r;
 	struct Env *e;
 
-	spin_lock(&envfreelist_lock);
-	if (!(e = env_free_list)) {
-		e->lock.name = "envxx";
+	if (type == ENV_TYPE_IDLE) {
+		e = (struct Env *)(thiscpu->cpu_ts.ts_esp0 - THREAD_SIZE);
+	} else {
+		spin_lock(&envfreelist_lock);
+		if (!(e = env_free_list)) {
+			e->lock.name = "envxx";
+			spin_unlock(&envfreelist_lock);
+			return -E_NO_FREE_ENV;
+		}
+
+		// commit the allocation
+		env_free_list = e->env_link;
 		spin_unlock(&envfreelist_lock);
-		return -E_NO_FREE_ENV;
 	}
-
-	// commit the allocation
-	env_free_list = e->env_link;
-	spin_unlock(&envfreelist_lock);
-
 	spin_lock(&e->lock);
 	// Allocate and set up the page directory for this environment.
 	if ((r = env_setup_vm(e)) < 0) {
@@ -247,11 +281,19 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 
 	// Set the basic status variables.
 	e->env_parent_id = parent_id;
-	e->env_type = ENV_TYPE_USER;
+	e->env_type = type;
+	
+	if (type == ENV_TYPE_IDLE) {
+		e->env_id = 0;
+		e->env_parent_id = 0;
+	}
 
 	// Set it as not runnable because code is not ready
 	e->env_status = ENV_NOT_RUNNABLE;
 	e->env_runs = 0;
+
+	// Set the thread struct esp0 as the top of this task struct's address
+	e->thread.esp0 = (uint32_t)e + THREAD_SIZE;
 
 	// Clear out all the saved register state,
 	// to prevent the register values
@@ -287,7 +329,7 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 
 	//enable the interrupt after entering user mode	
 	e->env_tf.tf_eflags |= FL_IF;
-	cprintf("[%08x] new env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
+	cprintf("[%08x] new env %08x, esp0=%08x\n", curenv ? curenv->env_id : 0, e->env_id, e->thread.esp0);
 	spin_unlock(&e->lock);
 	return 0;
 }
@@ -429,7 +471,9 @@ load_icode(struct Env *e, uint8_t *binary)
 		}
 	}
 	e->env_tf.tf_eip = elfhdr->e_entry;
-
+	e->thread.eip = (uint32_t)env_pop_tf;
+	//e->thread.esp = (uint32_t)&e->env_tf;
+	e->thread.esp = (uint32_t)e + THREAD_SIZE;
 	// Now map one page for the program's initial stack
 	// at virtual address USTACKTOP - PGSIZE.
 
@@ -437,7 +481,10 @@ load_icode(struct Env *e, uint8_t *binary)
 
 	region_alloc(e, (void*)(USTACKTOP - PGSIZE), PGSIZE);
 	memset((void*)(USTACKTOP - PGSIZE), 0, PGSIZE);
-	e->env_status = ENV_RUNNABLE;
+	if (e->env_type != ENV_TYPE_IDLE) {
+		e->env_cpunum = thiscpu->cpu_id;
+		e->env_status = ENV_RUNNABLE;
+	}
 }
 
 //
@@ -447,13 +494,13 @@ load_icode(struct Env *e, uint8_t *binary)
 // before running the first user-mode environment.
 // The new env's parent ID is set to 0.
 //
-void
+struct Env*
 env_create(uint8_t *binary, enum EnvType type)
 {
 	// LAB 3: Your code here.
 	struct Env *e;
 	int r = 0;
-	r = env_alloc(&e, 0);
+	r = env_alloc(&e, type, 0);
 	if(r){
 		cprintf("out of Env resource\n");
 		while(1)
@@ -461,6 +508,7 @@ env_create(uint8_t *binary, enum EnvType type)
 	}
 	e->env_type = type;
 	load_icode(e, binary);
+	return e;
 }
 
 //
@@ -476,6 +524,7 @@ env_free(struct Env *e)
 	// If freeing the current environment, switch to kern_pgdir
 	// before freeing the page directory, just in case the page
 	// gets reused.
+	cprintf("[%08x] free env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
 	spin_lock(&e->lock);
 	if (e == curenv)
 		lcr3(PADDR(kern_pgdir));
@@ -541,9 +590,11 @@ env_destroy(struct Env *e)
 
 	env_free(e);
 
+	asm volatile("cli");
 	if (curenv == e) {
 		curenv = NULL;
-		sched_yield();
+		env_run(thiscpu->idle);
+		return;
 	}
 }
 
@@ -589,43 +640,49 @@ env_run(struct Env *e)
 	//	   3. Set its status to ENV_RUNNING,
 	//	   4. Update its 'env_runs' counter,
 	//	   5. Use lcr3() to switch to its address space.
-	// Step 2: Use env_pop_tf() to restore the environment's
-	//	   registers and drop into user mode in the
-	//	   environment.
-
-	// Hint: This function loads the new environment's state from
-	//	e->env_tf.  Go back through the code you wrote above
-	//	and make sure you have set the relevant parts of
-	//	e->env_tf to sensible values.
-
-	// LAB 3: Your code here.
-	if(curenv && curenv->env_status == ENV_RUNNING){
+	// Step 2: Use run_env or switch_to
+	struct Env *tmp = curenv;
+	asm volatile("cli");
+	if (curenv && curenv->env_status == ENV_RUNNING) {
 		curenv->env_status = ENV_RUNNABLE;
 	}
+
 	if (e->env_status == ENV_RUNNING)
-		panic("thiscpu is %d , running cpu is %d running the same env on different two CPUS %s\n", thiscpu->cpu_id, e->env_cpunum, __func__);
+		panic("running the same env on different two CPUS\n");
+
 	curenv = e;
 	curenv->env_status = ENV_RUNNING;
 	curenv->env_runs++;
 
-	spin_unlock(&sched_lock);
-	asm volatile("cli");
 	lcr3(PADDR(curenv->env_pgdir));
-	env_pop_tf(&curenv->env_tf);
+
+	//cprintf("cpu is %d , switch from %08x to %08x\n", thiscpu->cpu_id, tmp? tmp->env_id:0, e->env_id);
+
+	if (!tmp) {
+		cprintf("cpu%d run %08x directly\n", thiscpu->cpu_id, e->env_id);
+		run_env(e);
+	}
+	else 
+		switch_to(tmp, e, tmp);
+	return;
 }
 
 //
 // Sleep on specific address
 //
-void sleep(void *chan)
+void sleep(void *chan, struct spinlock *lk)
 {
 	if (!curenv)
 		panic("curenv is NULL in %s\n", __func__);
-
-	spin_lock(&sched_lock);
+	
+	//cprintf("process %08x sleeps on %08x now\n", curenv->env_id, chan);
 	curenv->env_status = ENV_INTERRUPTIBLE;
-	spin_unlock(&sched_lock);
+	curenv->chan = chan;
+	//cprintf("curenv=%08x, env_status = %08x, chan=%08x\n", curenv->env_id, curenv->env_status, curenv->chan);
+
+	spin_unlock(lk);
 	sched_yield();
+	spin_lock(lk);
 }
 
 //
@@ -633,12 +690,22 @@ void sleep(void *chan)
 
 void wakeup(void *chan)
 {
-	int i = 0;
-	spin_lock(&sched_lock);
-	for(; i < NENV; i++){
-		if (envs[i].env_status == ENV_INTERRUPTIBLE){
+	int i;
+	for (i = 0; i < NENV; i++) {
+//		cprintf("envs[i]=%08x, envs[i].env_status = %08x, envs[i].chan=%08x\n", envs[i].env_id, envs[i].env_status, envs[i].chan);
+		if (envs[i].env_status == ENV_INTERRUPTIBLE && envs[i].chan == chan){
+			//cprintf("waking process %08x\n", envs[i].env_id);
 			envs[i].env_status = ENV_RUNNABLE;
 		}
 	}
-	spin_unlock(&sched_lock);
+}
+
+void __switch_to(struct Env *prev, struct Env *next)
+{
+	thiscpu->cpu_ts.ts_esp0 = next->thread.esp0;
+	gdt[thiscpu->cpu_id + (GD_TSS0 >> 3)] = SEG16(STS_T32A, (uint32_t)(&(thiscpu->cpu_ts)),
+					sizeof(struct Taskstate) - 1, 0);
+	gdt[thiscpu->cpu_id + (GD_TSS0 >> 3)].sd_s = 0;
+	next->env_cpunum = thiscpu->cpu_id;
+	asm volatile("sti");
 }

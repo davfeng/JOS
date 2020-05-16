@@ -18,7 +18,7 @@
 static struct Taskstate ts;
 
 long volatile jiffies;
-extern struct spinlock sched_lock;
+struct spinlock ticklock;
 /* For debugging, so print_trapframe can distinguish between printing
  * a saved trapframe and printing the current trapframe and print some
  * additional information in the latter case.
@@ -65,6 +65,8 @@ static const char *trapname(int trapno)
 		return "System call";
 	if (trapno >= IRQ_OFFSET && trapno < IRQ_OFFSET + 16)
 		return "Hardware Interrupt";
+	if (trapno == IRQ_OFFSET + IRQ_APICTIMER)
+		return "Hardware APIC Timer Interrupt";
 	return "(unknown trap)";
 }
 
@@ -203,7 +205,7 @@ trap_dispatch(struct Trapframe *tf, struct Trapframe *envtf)
 	}
 
 	if (tf->tf_trapno == T_PGFLT) {
-		page_fault_handler(envtf);
+		page_fault_handler(tf);
 		return;
 	}
 	// Handle spurious interrupts
@@ -225,7 +227,11 @@ trap_dispatch(struct Trapframe *tf, struct Trapframe *envtf)
 		// 8259 interrupts only are sent to CPU0
 		// need not spin lock to protect jiffies
 		//
+		spin_lock(&ticklock);
 		jiffies++;
+		wakeup((void*)&jiffies);
+		spin_unlock(&ticklock);
+
 		return;
 	}
 
@@ -251,20 +257,20 @@ trap_dispatch(struct Trapframe *tf, struct Trapframe *envtf)
 		//
 		// ide disk interrupt handler
 		//
-		ideintr();
 		cprintf("cpu%d:IDE interupt\n", thiscpu->cpu_id);
+		ideintr();
 		return;
 	}
 	// Handle clock interrupts. Don't forget to acknowledge the
 	// interrupt using lapic_eoi() before calling the scheduler!
 	// LAB 4: Your code here.
 
+		//if (((uint32_t)tf + 2*sizeof(struct Trapframe)) > thiscpu->cpu_ts.ts_esp0){
+		//}
 	if (tf->tf_trapno == IRQ_OFFSET + IRQ_APICTIMER) {
 		//cprintf("cpu%d:handling clock interrupt\n", thiscpu->cpu_id);
 		lapic_eoi();
-		if (((uint32_t)tf + 2*sizeof(struct Trapframe)) > thiscpu->cpu_ts.ts_esp0){
-			sched_yield();
-		}
+		sched_yield();
 		return;
 	}
 
@@ -289,9 +295,10 @@ trap(struct Trapframe *tf)
 	if (panicstr)
 		asm volatile("hlt");
 
+//	print_trapframe(tf);
 	xchg(&thiscpu->cpu_status, CPU_STARTED);
 
-	//cprintf("Incoming TRAP frame at %p\n", tf);
+//	cprintf("Incoming TRAP frame at %p\n", tf);
 	if ((tf->tf_cs & 3) == 3) {
 		// Trapped from user mode.
 		// Acquire the big kernel lock before doing any
@@ -371,6 +378,8 @@ page_fault_handler(struct Trapframe *tf)
 	//   (the 'tf' variable points at 'curenv->env_tf').
 
 	// LAB 4: Your code here.
+	cprintf("cpu%d fault handler env=%08x, va=%08x, ip=%08x\n",thiscpu->cpu_id, curenv->env_id, fault_va, tf->tf_eip);
+	print_trapframe(tf);
 	if(curenv->env_pgfault_upcall){
 		struct UTrapframe *ustk = (struct UTrapframe*)(UXSTACKTOP - sizeof(struct UTrapframe));
 		user_mem_assert(curenv, ustk, sizeof(struct UTrapframe), 0);
@@ -388,12 +397,12 @@ page_fault_handler(struct Trapframe *tf)
 		tf->tf_esp = (uintptr_t)ustk;
 		tf->tf_eip = (uintptr_t)curenv->env_pgfault_upcall;
 		user_mem_assert(curenv, (const void*)tf->tf_eip, PGSIZE, 0);
-		spin_lock(&sched_lock);
 		env_run(curenv);
+		cprintf("[%08x] after env_run\n");
 	}
 	// Destroy the environment that caused the fault.
-	cprintf("[%08x] user fault va %08x ip %08x\n",
-		curenv->env_id, fault_va, tf->tf_eip);
+	cprintf("[%08x] user fault va %08x ip %08x curenv=%08x\n",
+		curenv->env_id, fault_va, tf->tf_eip, curenv);
 	print_trapframe(tf);
 	env_destroy(curenv);
 }

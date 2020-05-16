@@ -18,6 +18,7 @@
 #include <kern/buf.h>
 #include <kern/defs.h>
 
+extern uint8_t _binary_obj_user_idle_start[];
 static void boot_aps(void);
 
 static volatile uint32_t bspinit;
@@ -53,20 +54,26 @@ i386_init(void)
 
 	ideinit();
 	binit();
+	spin_initlock(&ticklock, "ticklock");
 	// Starting non-boot CPUs
 	boot_aps();
 
+	thiscpu->idle = env_create(_binary_obj_user_idle_start, ENV_TYPE_IDLE);
 #if defined(TEST)
 	// Don't touch -- used by grading script!
 	ENV_CREATE(TEST, ENV_TYPE_USER);
+	ENV_CREATE(TEST, ENV_TYPE_USER);
 #else
 	// Touch all you want.
-	//ENV_CREATE(user_yield, ENV_TYPE_USER);
-	//ENV_CREATE(user_yield, ENV_TYPE_USER);
-	ENV_CREATE(user_dumbfork, ENV_TYPE_USER);
+	ENV_CREATE(user_hello, ENV_TYPE_USER);
+	ENV_CREATE(user_hello, ENV_TYPE_USER);
 #endif // TEST*
 	xchg(&bspinit, 1); // tell smps the BSP is done
 	// Schedule and run the first user environment!
+	curenv = thiscpu->idle;
+	curenv->env_status = ENV_RUNNING;
+	lcr3(PADDR(curenv->env_pgdir));
+	env_pop_tf(&curenv->env_tf);
 	sched_yield();
 }
 
@@ -113,13 +120,21 @@ mp_main(void)
 	env_init_percpu();
 	trap_init_percpu();
 	xchg(&thiscpu->cpu_status, CPU_STARTED); // tell boot_aps() we're up
-
+	//create the idle process
+	thiscpu->idle = env_create(_binary_obj_user_idle_start, ENV_TYPE_IDLE);
 	// Now that we have finished some basic setup, call sched_yield()
 	// to start running processes on this CPU.  But make sure that
 	// only one CPU can enter the scheduler at a time!
 	//
 	while (bspinit == 0)
 		;
+	curenv = thiscpu->idle;
+	curenv->env_status = ENV_RUNNING;
+	ENV_CREATE(user_hello, ENV_TYPE_USER);
+	ENV_CREATE(user_hello, ENV_TYPE_USER);
+	ENV_CREATE(user_hello, ENV_TYPE_USER);
+	ENV_CREATE(user_hello, ENV_TYPE_USER);
+	env_pop_tf(&curenv->env_tf);
 	sched_yield();
 }
 

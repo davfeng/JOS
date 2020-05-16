@@ -4,6 +4,12 @@
 void
 umain(int argc, char **argv)
 {
-	cprintf("hello, world\n");
-	cprintf("i am environment %08x\n", thisenv->env_id);
+	char buf[512];
+	for (int i = 0; i < 100;i++)
+	{
+		cprintf("i am environment %08x on cpu %d\n", thisenv->env_id, thisenv->env_cpunum);
+		cprintf("hello, world\n");
+		//sys_disk_read(0, buf, i, 1);
+		sys_sleep(5000);
+	}
 }

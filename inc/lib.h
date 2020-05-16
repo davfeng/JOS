@@ -55,6 +55,8 @@ int	sys_ipc_try_send(envid_t to_env, uint32_t value, void *pg, int perm);
 int	sys_ipc_recv(void *rcv_pg);
 int	sys_disk_read(uint8_t dev, void *p, uint32_t blkno, uint32_t num);
 int	sys_disk_write(uint8_t dev, void *p, uint32_t blkno, uint32_t num);
+int	sys_dummy();
+int	sys_sleep(uint32_t ms);
 
 // This must be inlined.  Exercise for reader: why?
 static inline envid_t __attribute__((always_inline))

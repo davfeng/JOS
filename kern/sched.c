@@ -8,16 +8,12 @@
 void sched_halt(void);
 
 static volatile uint32_t start;
-struct spinlock sched_lock = {
-#ifdef DEBUG_SPINLOCK
-	.name = "sched_lock"
-#endif
-};
+
 // Choose a user environment to run and run it.
 void
 sched_yield(void)
 {
-	struct Env *idle = NULL;
+	struct Env *chosen = NULL;
 	uint32_t i;
 	// Implement simple round-robin scheduling.
 	//
@@ -34,47 +30,66 @@ sched_yield(void)
 	// no runnable environments, simply drop through to the code
 	// below to halt the cpu.
 	// LAB 4: Your code here.
-	spin_lock(&sched_lock);
+	if (curenv == thiscpu->idle)
+		start = 0;
+	else
+		start = (curenv - &envs[0]) + 1;
 	i = start;
+
 	for(; i < NENV; i++){
-		if ((envs[i].env_status == ENV_RUNNABLE)){
-			idle = &envs[i];
+		if ((envs[i].env_status == ENV_RUNNABLE) && (envs[i].env_cpunum == thiscpu->cpu_id)){
+			chosen = &envs[i];
 			break;
 		} 
 	}
-	//check the envs before the curr
-	if(idle == NULL){
+
+	//
+	// check the envs before curenv
+	//
+	if (chosen == NULL) {
 		assert(i == NENV);
-		for(i = 0; i < start; i++){
-			if ((envs[i].env_status == ENV_RUNNABLE)){
-				idle = &envs[i];
+		for (i = 0; i < start; i++) {
+			if ((envs[i].env_status == ENV_RUNNABLE) && envs[i].env_cpunum == thiscpu->cpu_id){
+				chosen = &envs[i];
 				break;
 			}
 		}
 	}
-	//cprintf("%s: start=%d, i=%d, idle=0x%x, &envs[i]=0x%x\n", __func__, start,i,idle,&envs[i]);
-	if(idle){
-		if (i == NENV-1)
-			start = 0;
-		else
-			start = i+1;
 
-		//set the curenv as runnable
-		if ((curenv && (curenv->env_status == ENV_RUNNING)))
-			curenv->env_status = ENV_RUNNABLE;
-
-		env_run(idle);
+	// cprintf("cpu%d start=%d, i=%d, chosen=%08x \n", thiscpu->cpu_id, start, i, chosen? chosen->env_id:0);
+	if (chosen) {
+		
+		//
+		// run the selected env
+		//
+		
+		//cprintf("cpu%d curenv=%08x chosen=%08x\n", thiscpu->cpu_id, curenv, chosen);
+		env_run(chosen);
+		return;
 	}
 
-	//no environment is selected, if previous running process on this cpu is runnable, run it
-	if (curenv && curenv->env_status == ENV_RUNNING){
-		start = thiscpu->cpu_env - &envs[0] + 1;
+	// no environment is selected, if previous running process on this cpu is runnable, run it
+	if ((curenv->env_status == ENV_RUNNING) || (curenv->env_status == ENV_RUNNABLE)) {
 
-		env_run(thiscpu->cpu_env);
+		//
+		// idle process is not in the envs list
+		// if current running process is idle process
+		// need to keep the next round start position
+		//
+
+		if (curenv != thiscpu->idle){
+			//cprintf("cpu%d run the running process %08x\n", thiscpu->cpu_id, curenv->env_id);
+		}
+		return;
 	}
 
-	spin_unlock(&sched_lock);
-	sched_halt();
+	//
+	// run the idle process on this cpu because no runnable processes
+	//
+	//cprintf("cpu%d curenv=%08x run idle process\n", thiscpu->cpu_id, curenv->env_id);
+	chosen = thiscpu->idle;
+	if (curenv != chosen)
+		env_run(chosen);
 }
 
 // Halt this CPU when there is nothing to do. Wait until the
@@ -85,8 +100,7 @@ sched_halt(void)
 {
 	int i;
 
-	spin_lock(&sched_lock);
-	cprintf("%s: %d\n" ,__func__, thiscpu->cpu_id);
+	//cprintf("%s: %d\n" ,__func__, thiscpu->cpu_id);
 	// For debugging and testing purposes, if there are no runnable
 	// environments in the system, then drop into the kernel monitor.
 	for (i = 0; i < NENV; i++) {
@@ -97,9 +111,9 @@ sched_halt(void)
 			break;
 	}
 	if (i == NENV) {
-		cprintf("No runnable environments in the system!\n");
-		while (1)
-			monitor(NULL);
+		//cprintf("No runnable environments in the system! run idle process\n");
+		//while (1)
+		//	monitor(NULL);
 	}
 
 	// Mark that no environment is running on this CPU
@@ -110,8 +124,6 @@ sched_halt(void)
 	// timer interupts come in, we know we should re-acquire the
 	// big kernel lock
 	xchg(&thiscpu->cpu_status, CPU_HALTED);
-
-	spin_unlock(&sched_lock);
 
 	// Reset stack pointer, enable interrupts and then halt.
 	asm volatile (

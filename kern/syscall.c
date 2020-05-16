@@ -90,7 +90,7 @@ sys_exofork(void)
 	// LAB 4: Your code here.
 	struct Env* e;
 	int r;
-	if((r = env_alloc(&e, curenv->env_id)) < 0){
+	if((r = env_alloc(&e, ENV_TYPE_USER, curenv->env_id)) < 0){
 		return r;
 	}
 	e->env_status = ENV_NOT_RUNNABLE;
@@ -407,7 +407,9 @@ static int
 sys_disk_read(uint8_t dev, void* p, uint32_t blkno, uint32_t num)
 {
 	struct buf *b;
+	cprintf("blkno = %d before bread %08x\n", blkno, curenv->env_id);
 	b = bread(dev, blkno);
+	cprintf("blkno = %d after  bread %08x\n", blkno, curenv->env_id);
 	memmove(p, b->data, BSIZE);
 	return BSIZE;
 }
@@ -415,6 +417,28 @@ sys_disk_read(uint8_t dev, void* p, uint32_t blkno, uint32_t num)
 static int
 sys_disk_write(uint8_t dev, void *p, uint32_t blkno, uint32_t num)
 {
+	return 0;
+}
+
+static int
+sys_dummy()
+{
+	for (volatile int i=0; i<1000000; i++)
+		;
+	return 0;
+}
+
+static int
+sys_sleep(uint32_t ms)
+{
+	uint32_t t = jiffies;
+	//cprintf("curenv=%08x sleep %dms\n", curenv->env_id, ms);
+	spin_lock(&ticklock);
+	while ((jiffies - t) < (ms*HZ/1000)) {
+		sleep((void*)&jiffies, &ticklock);
+	}
+	spin_unlock(&ticklock);
+	//cprintf("curenv=%08x sleep returns\n", curenv->env_id);
 	return 0;
 }
 // Dispatches to the correct kernel function, passing the arguments.
@@ -458,6 +482,10 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		return sys_disk_read((uint8_t)a1, (void*)a2, a3, a4);
 	case SYS_disk_write:
 		return sys_disk_write((uint8_t)a1, (void*)a2, a3, a4); 
+	case SYS_dummy:
+		return sys_dummy(); 
+	case SYS_sleep:
+		return sys_sleep(a1); 
 	default:
 		return -E_INVAL;
 	}

@@ -64,7 +64,8 @@ QEMU := $(shell if which qemu >/dev/null 2>&1; \
 endif
 
 # try to generate a unique GDB port
-GDBPORT	:= $(shell expr `id -u` % 5000 + 25000)
+# GDBPORT	:= $(shell expr `id -u` % 5000 + 25000)
+GDBPORT	:= 1234
 
 CC	:= $(GCCPREFIX)gcc -pipe
 AS	:= $(GCCPREFIX)as
@@ -143,7 +144,7 @@ include user/Makefrag
 
 CPUS ?= 1
 
-QEMUOPTS = -drive file=disk1.img,index=1,media=disk,format=raw -drive file=$(OBJDIR)/kern/kernel.img,index=0,media=disk,format=raw -serial mon:stdio -gdb tcp::$(GDBPORT)
+QEMUOPTS = -drive file=disk1.img,index=1,media=disk,format=raw -drive file=$(OBJDIR)/kern/kernel.img,index=0,media=disk,format=raw -serial mon:stdio -s
 QEMUOPTS += $(shell if $(QEMU) -nographic -help | grep -q '^-D '; then echo '-D qemu.log'; fi)
 IMAGES = $(OBJDIR)/kern/kernel.img
 QEMUOPTS += -smp $(CPUS)
@@ -311,7 +312,7 @@ run-%-nox-gdb: prep-% pre-qemu
 	$(QEMU) -nographic $(QEMUOPTS) -S
 
 run-%-gdb: prep-% pre-qemu
-	$(QEMU) $(QEMUOPTS) -S
+	$(QEMU) $(QEMUOPTS) -S -g
 
 run-%-nox: prep-% pre-qemu
 	$(QEMU) -nographic $(QEMUOPTS)
